@@ -37,11 +37,9 @@ export default function Login() {
     try {
       await signInUser(email, password);
       toast.success("Logged in successfully!");
-      setTimeout(() => {
-        router.replace("/dashboard");
-      }, 500);
+      // No manual redirect needed, useEffect will handle it
     } catch (err) {
-      setFormLoading(false);
+      console.error("Login error:", err.code);
       switch (err.code) {
         case "auth/user-not-found":
           setError("Account not found. Please sign up.");
@@ -58,6 +56,7 @@ export default function Login() {
         default:
           setError("Login failed. Try again.");
       }
+      setFormLoading(false);
     }
   };
 
@@ -72,6 +71,7 @@ export default function Login() {
       await resetPassword(email);
       toast.success("Password reset email sent!");
     } catch (err) {
+      console.error("Reset error:", err.code);
       switch (err.code) {
         case "auth/user-not-found":
           setError("No account found with this email.");
@@ -158,6 +158,7 @@ export default function Login() {
 
           <button
             type="submit"
+            disabled={formLoading}
             className="w-full py-3 bg-[var(--color-primary)] text-white rounded-full font-semibold hover:opacity-90 transition"
           >
             {formLoading ? "Logging in..." : "Log In"}

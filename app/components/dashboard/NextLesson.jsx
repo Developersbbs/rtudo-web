@@ -247,7 +247,7 @@ else {
             className="text-sm font-semibold py-1 px-3 rounded-full text-white"
             style={{ backgroundColor: "var(--color-primary)" }}
           >
-            <FaPlay className="inline mr-1" /> Start to play
+            <FaPlay className="inline mr-1" /> Start
           </button>
         </div>
 

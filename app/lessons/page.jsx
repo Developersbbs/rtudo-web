@@ -77,61 +77,57 @@ export default function ChaptersPage() {
     if (!user) return;
 
     const fetchChapters = async () => {
-      await checkSubscription();
-      await loadUserProgress();
+  await checkSubscription();
+  await loadUserProgress();
 
-      // 🔹 Fetch Chapters with proper duration and documents
-      const snapshot = await getDocs(collection(db, "chapters"));
-      const fetched = [];
+  const snapshot = await getDocs(collection(db, "chapters"));
 
-      for (const docSnap of snapshot.docs) {
-        const chapterData = docSnap.data();
-        const lessonsSnap = await getDocs(collection(db, "chapters", docSnap.id, "lessons"));
-        
-        const lessons = lessonsSnap.docs.map((d, index) => {
-          const lessonData = d.data();
-          return {
-            ...lessonData,
-            id: d.id || `lesson${index + 1}`,
-            docId: d.id,
-            // Use duration from database or fallback to default
-            duration: lessonData.duration || 15,
-            // Include documents array from database
-            documents: lessonData.documents || [],
-            // Ensure other fields are preserved
-            title: lessonData.title || `Lesson ${index + 1}`,
-            description: lessonData.description || "",
-            videoUrl: lessonData.videoUrl || "",
-          };
-        });
-        
-        lessons.sort((a, b) => a.createdAt?.seconds - b.createdAt?.seconds);
+  const fetched = await Promise.all(
+    snapshot.docs.map(async (docSnap) => {
+      const chapterData = docSnap.data();
+      const lessonsSnap = await getDocs(collection(db, "chapters", docSnap.id, "lessons"));
 
-        // Calculate total chapter duration from lessons
-        const totalDuration = lessons.reduce((sum, lesson) => sum + (lesson.duration || 15), 0);
+      const lessons = lessonsSnap.docs.map((d, index) => {
+        const lessonData = d.data();
+        return {
+          ...lessonData,
+          id: d.id || `lesson${index + 1}`,
+          docId: d.id,
+          duration: lessonData.duration || 15,
+          documents: lessonData.documents || [],
+          title: lessonData.title || `Lesson ${index + 1}`,
+          description: lessonData.description || "",
+          videoUrl: lessonData.videoUrl || "",
+        };
+      });
 
-        fetched.push({ 
-          ...chapterData, 
-          lessons,
-          id: chapterData.id || docSnap.id,
-          duration: totalDuration // Use calculated duration
-        });
-      }
+      lessons.sort((a, b) => a.createdAt?.seconds - b.createdAt?.seconds);
+      const totalDuration = lessons.reduce((sum, lesson) => sum + (lesson.duration || 15), 0);
 
-      fetched.sort((a, b) => parseInt(a.id) - parseInt(b.id));
-      setChapters(fetched);
+      return {
+        ...chapterData,
+        lessons,
+        id: chapterData.id || docSnap.id,
+        duration: totalDuration,
+      };
+    })
+  );
 
-      // 🔹 Fetch Final Exams
-      try {
-        const examsSnap = await getDocs(collection(db, "final-exams"));
-        const exams = examsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setFinalExams(exams);
-      } catch (err) {
-        console.error("Failed to load final exams:", err);
-      }
+  fetched.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+  setChapters(fetched);
 
-      setLoading(false);
-    };
+  // 🔹 Fetch Final Exams
+  try {
+    const examsSnap = await getDocs(collection(db, "final-exams"));
+    const exams = examsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setFinalExams(exams);
+  } catch (err) {
+    console.error("Failed to load final exams:", err);
+  }
+
+  setLoading(false);
+};
+
 
     fetchChapters();
   }, [user]);

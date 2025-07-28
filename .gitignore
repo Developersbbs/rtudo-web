@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+.pnp/
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+
+# Production
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment variables
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage/
+*.lcov
+
+# VSCode settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+
+# Optional: Ignore next/image cache
+/public/cache/
+
+# Optional: Ignore storybook static builds
+storybook-static/
+
+# Optional: Ignore Turbo Repo cache (if using Turborepo)
+turbo/

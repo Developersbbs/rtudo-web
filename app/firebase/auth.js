@@ -8,7 +8,7 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 import { auth, db } from "./firebaseConfig";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, arrayUnion  } from "firebase/firestore";
 import { getDefaultUserSchema } from "./defaultUserSchema";
 
 const createUserIfNotExists = async (user) => {

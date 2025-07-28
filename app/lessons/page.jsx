@@ -76,56 +76,83 @@ export default function ChaptersPage() {
   useEffect(() => {
     if (!user) return;
 
-    const fetchChapters = async () => {
-  await checkSubscription();
-  await loadUserProgress();
-
-  const snapshot = await getDocs(collection(db, "chapters"));
-
-  const fetched = await Promise.all(
-    snapshot.docs.map(async (docSnap) => {
-      const chapterData = docSnap.data();
-      const lessonsSnap = await getDocs(collection(db, "chapters", docSnap.id, "lessons"));
-
-      const lessons = lessonsSnap.docs.map((d, index) => {
-        const lessonData = d.data();
-        return {
-          ...lessonData,
-          id: d.id || `lesson${index + 1}`,
-          docId: d.id,
-          duration: lessonData.duration || 15,
-          documents: lessonData.documents || [],
-          title: lessonData.title || `Lesson ${index + 1}`,
-          description: lessonData.description || "",
-          videoUrl: lessonData.videoUrl || "",
-        };
-      });
-
-      lessons.sort((a, b) => a.createdAt?.seconds - b.createdAt?.seconds);
-      const totalDuration = lessons.reduce((sum, lesson) => sum + (lesson.duration || 15), 0);
-
-      return {
-        ...chapterData,
-        lessons,
-        id: chapterData.id || docSnap.id,
-        duration: totalDuration,
-      };
-    })
-  );
-
-  fetched.sort((a, b) => parseInt(a.id) - parseInt(b.id));
-  setChapters(fetched);
-
-  // 🔹 Fetch Final Exams
+  const fetchChapters = async () => {
   try {
-    const examsSnap = await getDocs(collection(db, "final-exams"));
-    const exams = examsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    setFinalExams(exams);
-  } catch (err) {
-    console.error("Failed to load final exams:", err);
-  }
+    const [chaptersSnap, examsSnap, userProgressData, subSnap] = await Promise.all([
+      getDocs(collection(db, "chapters")),
+      getDocs(collection(db, "final-exams")),
+      getUserProgress(user?.uid),
+      getDoc(doc(db, "users", user.uid, "subscriptions", "details"))
+    ]);
 
-  setLoading(false);
+    // 🔹 Process Subscription
+    if (subSnap.exists()) {
+      const data = subSnap.data();
+      const now = new Date();
+      if (data.status === "active" && new Date(data.endDate) > now) {
+        setSubscription(data);
+        setUserPlan(data.plan);
+      }
+    }
+
+    // 🔹 Process User Progress
+    if (userProgressData) {
+      const normalizedLessons = userProgressData.completedLessons?.map((item) =>
+        typeof item === "string" ? { key: item, completedAt: null } : item
+      ) || [];
+
+      setUserProgress({
+        ...userProgressData,
+        completedLessons: normalizedLessons,
+        completedChapters: userProgressData.completedChapters || [],
+        completedExams: userProgressData.completedExams || [],
+      });
+    }
+
+    // 🔹 Process Chapters and Lessons (in parallel)
+    const chapters = await Promise.all(
+      chaptersSnap.docs.map(async (docSnap) => {
+        const chapterData = docSnap.data();
+        const lessonsSnap = await getDocs(collection(db, "chapters", docSnap.id, "lessons"));
+
+        const lessons = lessonsSnap.docs.map((d, index) => {
+          const lessonData = d.data();
+          return {
+            ...lessonData,
+            id: d.id || `lesson${index + 1}`,
+            docId: d.id,
+            duration: lessonData.duration || 15,
+            documents: lessonData.documents || [],
+            title: lessonData.title || `Lesson ${index + 1}`,
+            description: lessonData.description || "",
+            videoUrl: lessonData.videoUrl || "",
+          };
+        });
+
+        lessons.sort((a, b) => a.createdAt?.seconds - b.createdAt?.seconds);
+        const totalDuration = lessons.reduce((sum, lesson) => sum + (lesson.duration || 15), 0);
+
+        return {
+          ...chapterData,
+          lessons,
+          id: chapterData.id || docSnap.id,
+          duration: totalDuration,
+        };
+      })
+    );
+
+    chapters.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+    setChapters(chapters);
+
+    // 🔹 Final Exams
+    const finalExams = examsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    setFinalExams(finalExams);
+  } catch (err) {
+    console.error("⚠️ Error loading data:", err);
+    toast.error("Something went wrong while loading content.");
+  } finally {
+    setLoading(false);
+  }
 };
 
 

@@ -16,6 +16,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import Navbar from "../components/Navbar";
 import Loader from "../components/Loader";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   doc,
   getDoc,
@@ -34,12 +35,6 @@ export default function SubscriptionsPlans() {
 
   const { user } = useAuth();
   const router = useRouter();
-  const toggleDarkMode = () => {
-    document.documentElement.classList.toggle("dark");
-  };
-  
-  useEffect(() => {
-  if (user === undefined) return; // Still loading auth, do nothing
 
   const fetchUserPlansAndInvoices = async () => {
     if (!user?.uid) return;
@@ -68,9 +63,10 @@ export default function SubscriptionsPlans() {
     }
   };
 
-  fetchUserPlansAndInvoices();
-}, [user]);
-
+  useEffect(() => {
+    if (user === undefined) return;
+    fetchUserPlansAndInvoices();
+  }, [user]);
 
   const plans = {
     basic: {
@@ -146,18 +142,25 @@ export default function SubscriptionsPlans() {
 
   const handlePayment = async (planId) => {
     try {
-      if (!user?.uid) return alert("User not logged in");
-      if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID)
-        return alert("Razorpay Key ID not found");
+      if (!user?.uid) return toast.error("User not logged in");
+
+      const res = await fetch("/api/razorpay-key");
+      const data = await res.json();
+      const key_id = data.key_id;
+
+      if (!key_id) {
+        toast.error("Unable to fetch Razorpay Key ID");
+        return;
+      }
 
       setLoading(planId);
       const isRazorpayLoaded = await initializeRazorpay();
-      if (!isRazorpayLoaded) return alert("Razorpay SDK failed to load");
+      if (!isRazorpayLoaded) return toast.error("Razorpay SDK failed to load");
 
       const orderData = await createOrder(planId);
 
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: key_id,
         amount: orderData.amount,
         currency: orderData.currency,
         name: "Learning Platform",
@@ -191,18 +194,18 @@ export default function SubscriptionsPlans() {
 
               const unlockResult = await unlockRes.json();
               if (!unlockResult.success) {
-                alert(unlockResult.error || "Failed to unlock content.");
+                toast.error(unlockResult.error || "Failed to unlock content.");
                 return;
               }
 
-              alert(`✅ ${plans[planId].name} plan activated!`);
-              router.refresh();
+              toast.success(`${plans[planId].name} plan activated! 🎉`);
+              await fetchUserPlansAndInvoices(); // ✅ live update
             } else {
               throw new Error("Payment verification failed");
             }
           } catch (error) {
             console.error("Payment error:", error);
-            alert("Payment verification failed.");
+            toast.error("Payment verification failed.");
           } finally {
             setIsVerifying(false);
           }
@@ -217,12 +220,12 @@ export default function SubscriptionsPlans() {
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", function (res) {
         console.error("Payment failed:", res.error);
-        alert(`Payment failed: ${res.error.description}`);
+        toast.error(res.error.description || "Payment failed");
       });
       rzp.open();
     } catch (error) {
       console.error(error);
-      alert("Payment could not be completed.");
+      toast.error("Payment could not be completed.");
     } finally {
       setLoading(null);
     }
@@ -285,7 +288,6 @@ export default function SubscriptionsPlans() {
 
   const InvoiceCard = ({ plan }) => (
     <div className="card rounded-xl p-4 my-4 shadow-sm">
-
       <h3 className="text-lg font-bold text-[var(--color-primary)] mb-3 flex items-center gap-2">
         <BsReceipt className="text-[var(--color-primary)]" /> Invoice
       </h3>
@@ -320,12 +322,8 @@ export default function SubscriptionsPlans() {
       {isVerifying && <Loader />}
       <div className="fixed top-0 left-0 w-full z-10 shadow-sm border-b" style={{ backgroundColor: "var(--card-background)", borderColor: "var(--card-border)" }}>
         <div className="px-4 py-4 max-w-xl mx-auto text-center">
-          <h1 className="text-2xl font-bold mb-1 text-[var(--color-primary)]">
-            Choose Your Plan
-          </h1>
-          <p className="text-sm text-gray-600">
-            Select the perfect plan for your learning journey
-          </p>
+          <h1 className="text-2xl font-bold mb-1 text-[var(--color-primary)]">Choose Your Plan</h1>
+          <p className="text-sm text-gray-600">Select the perfect plan for your learning journey</p>
         </div>
       </div>
 
@@ -350,13 +348,10 @@ export default function SubscriptionsPlans() {
             )}
 
             {userPlan.plan === "pro" && (
-              <>
-                <div className="mt-6 p-4 border rounded-xl shadow-sm" style={{ backgroundColor: "#d1fae5", color: "#065f46" }} >
-
-                  <h3 className="font-bold text-lg mb-1">🎉 You're on the Pro Plan</h3>
-                  <p>All premium features are unlocked. Keep learning!</p>
-                </div>
-              </>
+              <div className="mt-6 p-4 border rounded-xl shadow-sm" style={{ backgroundColor: "#d1fae5", color: "#065f46" }}>
+                <h3 className="font-bold text-lg mb-1">🎉 You're on the Pro Plan</h3>
+                <p>All premium features are unlocked. Keep learning!</p>
+              </div>
             )}
           </>
         )}

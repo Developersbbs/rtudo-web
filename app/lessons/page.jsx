@@ -559,7 +559,7 @@ export default function ChaptersPage() {
       ? 'pt-[230px]' // for users with no subscription at all
       : userPlan === 'basic'
       ? 'pt-[250px]' // for basic users with banner
-      : 'pt-[160px]' // for pro users, only header spacing
+      : 'pt-[110px]' // for pro users, only header spacing
   }`}
 >
 

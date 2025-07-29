@@ -47,6 +47,8 @@ export default function ExamPage() {
 
   const chunksRef = useRef([]);
   const recognitionRef = useRef(null);
+  const micStreamRef = useRef(null);
+
 
   const getSectionIcon = (type) => {
     switch (type) {
@@ -76,6 +78,17 @@ export default function ExamPage() {
     fetchExam();
   }, [type]);
 
+  useEffect(() => {
+  return () => {
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((track) => track.stop());
+      micStreamRef.current = null;
+      console.log("🔇 Microphone stopped on unmount");
+    }
+  };
+}, []);
+
+
   const handleStartRecording = async () => {
     chunksRef.current = [];
     setTranscript("");
@@ -84,6 +97,7 @@ export default function ExamPage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current=stream;  
       const recorder = new MediaRecorder(stream);
 
       const recognition = new (window.SpeechRecognition ||

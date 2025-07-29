@@ -22,7 +22,7 @@ export default function Home() {
         {/* Logo */}
         <div className="mb-6 flex justify-center">
           <Image
-            src="/assets/logo.png"
+            src="/assets/logo-light.png"
             alt="R-Tudo Logo"
             width={120}
             height={120}

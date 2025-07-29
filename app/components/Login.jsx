@@ -90,7 +90,7 @@ export default function Login() {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen px-4 py-8 bg-white text-center">
       <div className="mb-6">
-        <Image src="/assets/logo.png" alt="R-Tudo Logo" width={120} height={120} priority />
+        <Image src="/assets/logo-light.png" alt="R-Tudo Logo" width={120} height={120} priority />
       </div>
 
       <h2 className="text-2xl font-semibold text-gray-800 mb-6 leading-snug">

@@ -114,12 +114,6 @@ export const resetPassword = async (email) => {
 
 export const logoutUser = async () => {
   await signOut(auth);
-
-  // Reset theme to light
-  if (typeof window !== 'undefined') {
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('theme', 'light');
-  }
 };
 
 export const observeAuthState = (callback) => onAuthStateChanged(auth, callback);

@@ -30,7 +30,7 @@ export default function Home() {
     <main className="flex flex-col items-center justify-center min-h-screen px-4 py-8 bg-white text-center">
       <div className="mb-6">
         <Image
-          src="/assets/logo.png"
+          src="/assets/logo-light.png"
           alt="R-Tudo Logo"
           width={120}
           height={120}

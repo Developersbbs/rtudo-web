@@ -1,36 +1,31 @@
 'use client';
 
+import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { BsSun, BsMoonStarsFill } from 'react-icons/bs';
 
 export default function Preferences() {
-  const [isDark, setIsDark] = useState(false);
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark =
-      savedTheme === 'dark' ||
-      (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-    setIsDark(prefersDark);
-    document.documentElement.classList.toggle('dark', prefersDark);
+    setMounted(true); // Avoid hydration mismatch
   }, []);
 
+  if (!mounted) return null;
+
+  const isDark = resolvedTheme === 'dark';
+
   const toggleTheme = () => {
-    const newTheme = !isDark;
-    setIsDark(newTheme);
-    document.documentElement.classList.toggle('dark', newTheme);
-    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+    setTheme(isDark ? 'light' : 'dark');
   };
 
   return (
     <div className="space-y-3">
-      
-
       <div
         className="rounded-xl p-3 flex items-center gap-4 cursor-pointer"
         style={{
-          backgroundColor: 'var(--accent)', // 👈 this must exist in CSS
+          backgroundColor: 'var(--accent)',
         }}
       >
         <div

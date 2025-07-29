@@ -4,26 +4,13 @@ export const getDefaultUserSchema = ({ user, onboarding }) => {
   const today = dayjs().format("YYYY-MM-DD");
   const nowISO = new Date().toISOString();
 
-  const hasCompletedOnboarding =
-    !!onboarding?.nativeLanguage &&
-    !!onboarding?.motivation &&
-    !!onboarding?.englishLevel &&
-    !!onboarding?.learningTime?.goal &&
-    !!onboarding?.learningTime?.time;
-
   return {
     uid: user.uid,
     email: user.email,
     displayName: user.displayName || onboarding?.name || 'User',
     photoURL: user.photoURL || onboarding?.photo || '',
-    proficiencyLevel: onboarding?.englishLevel || "Beginner",
-    learningLanguage: onboarding?.nativeLanguage || "en",
-    nativeLanguage: onboarding?.nativeLanguage || "",
-    motivation: onboarding?.motivation || "",
-    source: onboarding?.source || "",
-    dailyGoal: onboarding?.learningTime?.goal || 2,
-    reminderTime: onboarding?.learningTime?.time || "",
-    hasCompletedOnboarding: hasCompletedOnboarding,
+
+    hasCompletedOnboarding: false,
     hasReceivedWelcomeBonus: true,
 
     lastLoginDate: nowISO,

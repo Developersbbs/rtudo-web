@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { registerUser } from "../firebase/auth";
-import { auth, db } from "../firebase/firebaseConfig";
-import { doc, setDoc } from "firebase/firestore";
+import { auth } from "../firebase/firebaseConfig";
 import Image from "next/image";
 
 export default function CreateAccount() {
@@ -35,35 +34,10 @@ export default function CreateAccount() {
     try {
       const user = await registerUser(email, password);
 
-      // ✅ Get onboarding data from localStorage
-      const nativeLang = localStorage.getItem("nativeLanguage");
-      const motivation = localStorage.getItem("motivation");
-      const level = localStorage.getItem("level");
-      const source = localStorage.getItem("source");
-      const learningTime = JSON.parse(localStorage.getItem("learningTime") || "{}");
-const hasCompletedOnboarding =
-  nativeLang &&
-  motivation &&
-  level &&
-  learningTime?.reminderTime &&
-  learningTime?.dailyGoal;
-
-await setDoc(
-  doc(db, "users", user.uid),
-  {
-    nativeLanguage: nativeLang || "",
-    motivation: motivation || "",
-    proficiencyLevel: level || "",
-    source: source || "",
-    reminderTime: learningTime?.reminderTime || "",
-    dailyGoal: learningTime?.dailyGoal || 2,
-    hasCompletedOnboarding: Boolean(hasCompletedOnboarding),
-  },
-  { merge: true }
-);
-
-
+      // Clear any stored onboarding data (optional)
       localStorage.clear();
+
+      // Redirect to dashboard
       router.push("/dashboard");
     } catch (err) {
       console.error(err);
@@ -74,7 +48,13 @@ await setDoc(
   return (
     <main className="flex flex-col items-center justify-center min-h-screen px-4 py-8 bg-white text-center">
       <div className="mb-6">
-        <Image src="/assets/logo.png" alt="R-Tudo Logo" width={120} height={120} priority />
+        <Image
+          src="/assets/logo-light.png"
+          alt="R-Tudo Logo"
+          width={120}
+          height={120}
+          priority
+        />
       </div>
 
       <h2 className="text-2xl font-semibold text-gray-800 mb-6 leading-snug">

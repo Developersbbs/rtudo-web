@@ -78,7 +78,7 @@ export default function NativeLanguage() {
         />
 
         {/* Language list */}
-        <div className="space-y-3 mb-6 overflow-y-auto max-h-[400px] pr-1 min-h-[150px]">
+        <div className="space-y-3 mb-6 overflow-y-auto max-h-[400px] pr-1 min-h-[150px] ">
           {filteredLanguages.length > 0 ? (
             filteredLanguages.map((lang) => (
               <button

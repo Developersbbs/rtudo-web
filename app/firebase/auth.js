@@ -8,8 +8,9 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 import { auth, db } from "./firebaseConfig";
-import { doc, getDoc, setDoc, arrayUnion  } from "firebase/firestore";
+import { doc, getDoc, setDoc, arrayUnion } from "firebase/firestore";
 import { getDefaultUserSchema } from "./defaultUserSchema";
+import { updateCurrentSubscriptionInfo } from "../utils/updateCurrentSubscriptionInfo ";
 
 const createUserIfNotExists = async (user) => {
   const userRef = doc(db, "users", user.uid);
@@ -19,35 +20,18 @@ const createUserIfNotExists = async (user) => {
   const nowISO = new Date().toISOString();
 
   if (!snap.exists()) {
-    // Gather onboarding data
-    const onboarding = {
-      nativeLanguage: localStorage.getItem("nativeLanguage"),
-      motivation: localStorage.getItem("motivation"),
-      englishLevel: localStorage.getItem("level"),
-      source: localStorage.getItem("source"),
-      learningTime: JSON.parse(localStorage.getItem("learningTime") || "{}"),
-    };
-
-    const defaultUserSchema = getDefaultUserSchema({ user, onboarding });
+    const defaultUserSchema = getDefaultUserSchema({ user });
     await setDoc(userRef, defaultUserSchema, { merge: true });
-
-    // Clean up localStorage
-    localStorage.removeItem("nativeLanguage");
-    localStorage.removeItem("motivation");
-    localStorage.removeItem("level");
-    localStorage.removeItem("source");
-    localStorage.removeItem("learningTime");
+    localStorage.clear();
   } else {
     const data = snap.data();
-    const todayISO = nowISO;
+    const xpData = {
+  availableXP: data.xp?.availableXP || 0,
+  totalXP: data.xp?.totalXP || 0,
+  history: Array.isArray(data.xp?.history) ? data.xp.history : [],
+};
 
-    const xpData = data.xp || {
-      availableXP: 0,
-      totalXP: 0,
-      history: [],
-    };
 
-    // Check if XP already given today
     const alreadyGivenToday = xpData.history.some(entry =>
       entry.date?.startsWith(today)
     );
@@ -56,7 +40,7 @@ const createUserIfNotExists = async (user) => {
       const dailyXP = 10;
 
       const newHistoryEntry = {
-        date: todayISO,
+        date: nowISO,
         amount: dailyXP,
         reason: "Daily Login",
       };
@@ -64,7 +48,7 @@ const createUserIfNotExists = async (user) => {
       const updatedXP = {
         availableXP: (xpData.availableXP || 0) + dailyXP,
         totalXP: (xpData.totalXP || 0) + dailyXP,
-        history: [newHistoryEntry, ...xpData.history].slice(0, 100), // Keep last 100
+        history: [newHistoryEntry, ...xpData.history].slice(0, 100),
       };
 
       await setDoc(
@@ -97,8 +81,10 @@ const createUserIfNotExists = async (user) => {
       );
     }
   }
-};
 
+  // ✅ Always sync subscription info after checking user
+  await updateCurrentSubscriptionInfo(user.uid);
+};
 
 export const registerUser = async (email, password) => {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -108,7 +94,7 @@ export const registerUser = async (email, password) => {
 };
 
 export const signInUser = async (email, password) => {
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const userCredential = await signInWithEmailAndPassword(auth,email, password);
   const user = userCredential.user;
   await createUserIfNotExists(user);
   return user;
@@ -126,5 +112,14 @@ export const resetPassword = async (email) => {
   return await sendPasswordResetEmail(auth, email);
 };
 
-export const logoutUser = () => signOut(auth);
+export const logoutUser = async () => {
+  await signOut(auth);
+
+  // Reset theme to light
+  if (typeof window !== 'undefined') {
+    document.documentElement.classList.remove('dark');
+    localStorage.setItem('theme', 'light');
+  }
+};
+
 export const observeAuthState = (callback) => onAuthStateChanged(auth, callback);

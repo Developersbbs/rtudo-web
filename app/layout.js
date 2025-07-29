@@ -11,17 +11,17 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      {/* Apply theme classes here */}
-      <body
-        className="antialiased transition-colors duration-300 bg-[var(--background)] text-[var(--text-color)]"
-      >
+      <body className="antialiased transition-colors duration-300 bg-[var(--background)] text-[var(--text-color)]">
         <ThemeProvider
-          attribute="class" // Adds `class="dark"` on <html>
-          defaultTheme="system"
-          enableSystem
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
-          <AuthProvider>{children}<Toaster position="top-center" /></AuthProvider>
+          <AuthProvider>
+            {children}
+            <Toaster position="top-center" />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

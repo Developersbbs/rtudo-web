@@ -14,20 +14,20 @@
     --accent: #f3f4f6;
   }
 
-  /* Dark mode variables */
-  .dark {
-    --background: #232323;
-    --foreground: #ededed;
-    --color-primary:#6c2e57;
-    --text-color: #ffffff;
-    
-    /* Card and component colors for dark mode */
-    --card-background: #2a2a2a;
-    --card-border: #404040;
-    --secondary-background: #1a1a1a;
-    --muted-text: #a1a1aa;
-    --accent: #333333;
-  }
+.dark {
+  --background: #121212;           
+  --foreground: #f4f4f5;           
+  --color-primary: #d36ca1;        
+  --text-color: #f5f5f5;           
+
+  /* Card and component colors for dark mode */
+  --card-background: #1e1e1e;      /* Card bg slightly lighter than main */
+  --card-border: #3a3a3a;          /* Subtle but visible border */
+  --secondary-background: #181818;/* Secondary bg for sections */
+  --muted-text: #a1a1aa;           /* Muted text like labels/hints */
+  --accent: #2d2d2d;               /* Accent for hover/bg containers */
+}
+
 
   @theme inline {
     --color-background: var(--background);

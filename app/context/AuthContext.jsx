@@ -3,147 +3,144 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase/firebaseConfig";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  collection,
+  getDocs,
+} from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
 import Loader from "../components/Loader";
 import dayjs from "dayjs";
-import { differenceInDays } from "date-fns";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [prefetchedLessonsData, setPrefetchedLessonsData] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log("🔐 Auth state changed:", firebaseUser?.uid);
+
       if (firebaseUser) {
         const uid = firebaseUser.uid;
         const userRef = doc(db, "users", uid);
-        const now = new Date();
+        const nowISO = new Date().toISOString();
         const today = dayjs().format("YYYY-MM-DD");
-        const nowISO = now.toISOString();
 
-        let userDoc = await getDoc(userRef);
+        // ✅ Try loading cached lessons first
+        const cachedLessons = localStorage.getItem("cachedLessons");
+        const cachedLessonsDate = localStorage.getItem("cachedLessonsDate");
 
-        // 👇 helper to check onboarding completion
-        function checkOnboardingStatus(data) {
-          const learningTime = data.learningTime || {};
-          return Boolean(
-            data.nativeLanguage?.trim() &&
-            data.motivation?.trim() &&
-            data.level?.trim() &&
-            learningTime.time?.trim() &&
-            learningTime.reminder?.trim()
-          );
+        if (cachedLessons && cachedLessonsDate) {
+          const cachedAgeInDays = dayjs().diff(dayjs(cachedLessonsDate), "day");
+          if (cachedAgeInDays < 7) {
+            console.log("⚡ Using cached lessons from localStorage");
+            setPrefetchedLessonsData(JSON.parse(cachedLessons));
+          }
         }
 
-        // 🔰 Create user if not exists
+        const userDoc = await getDoc(userRef);
+
         if (!userDoc.exists()) {
+          console.log("🆕 Creating new user document...");
           await setDoc(userRef, {
             uid,
             email: firebaseUser.email,
             displayName: firebaseUser.displayName || "User",
             photoURL: firebaseUser.photoURL || "",
-            availableXP: 250,
-            totalXP: 250,
-            lastLoginDate: nowISO,
-            lastLoginXpDate: today,
-            lastLogin: now,
-            hasReceivedWelcomeBonus: true,
-            streak: 1,
-            hasCompletedOnboarding: false, // default false
-            xpHistory: {
-              [today]: {
-                earned: 250,
-                source: {
-                  welcome_bonus: 250,
-                },
-              },
-            },
-            appUsage: {
-              dailyUsage: [
-                {
-                  date: today,
-                  sessionsCount: 1,
-                  timeSpent: 0,
-                  lastUpdated: nowISO,
-                },
-              ],
-            },
-            weeklyUsage: {
-              weekStart: today,
-              totalTime: 0,
-              averageTime: 0,
-              mostActiveDay: today,
-              weeklyXPClaimed: false,
-            },
-            monthlyUsage: {
-              month: today.slice(0, 7),
-              totalTime: 0,
-              averageTime: 0,
-              mostActiveWeek: today,
-            },
+            hasCompletedOnboarding: false,
+            currentPlan: "Free",
+            currentSubscriptionId: "",
+            lastLogin: nowISO,
             updatedAt: nowISO,
           });
         } else {
-          const data = userDoc.data();
-          const lastLogin = data.lastLogin?.toDate?.() || new Date(0);
+          // Fetch order ID from subscriptions/details if exists
+          const subscriptionSnap = await getDocs(
+            collection(db, "users", uid, "subscriptions")
+          );
 
-          // ✅ Recheck onboarding
-          const hasCompletedOnboarding = checkOnboardingStatus(data);
+          let currentPlan = "Free";
+          let currentSubscriptionId = "";
 
-          // Update appUsage.dailyUsage
-          let dailyUsage = data.appUsage?.dailyUsage || [];
-          let todayEntry = dailyUsage.find((entry) => entry.date === today);
-
-          if (todayEntry) {
-            todayEntry.sessionsCount += 1;
-            todayEntry.lastUpdated = nowISO;
-          } else {
-            todayEntry = {
-              date: today,
-              sessionsCount: 1,
-              timeSpent: 0,
-              lastUpdated: nowISO,
-            };
-            dailyUsage.push(todayEntry);
+          if (!subscriptionSnap.empty) {
+            const subDoc = subscriptionSnap.docs[0]; // Assuming latest is first
+            const subData = subDoc.data();
+            currentPlan = subData.planName || "Free";
+            currentSubscriptionId = subData.details?.orderID || "";
           }
 
-          let updates = {
-            "appUsage.dailyUsage": dailyUsage,
-            lastLoginDate: nowISO,
+          await updateDoc(userRef, {
+            lastLogin: nowISO,
             updatedAt: nowISO,
-            lastLogin: now,
-            hasCompletedOnboarding, // 🟢 save the result
-          };
-
-          // Add daily XP if not already given today
-          if (data.lastLoginXpDate !== today) {
-            const availableXP = (data.availableXP || 0) + 10;
-            const totalXP = (data.totalXP || 0) + 10;
-            const xpToday = (data.xpHistory?.[today]?.earned || 0) + 10;
-
-            updates = {
-              ...updates,
-              availableXP,
-              totalXP,
-              lastLoginXpDate: today,
-              [`xpHistory.${today}.earned`]: xpToday,
-              [`xpHistory.${today}.source.daily`]: 10,
-            };
-
-            const daysDiff = differenceInDays(now, lastLogin);
-            let newStreak = daysDiff === 1 ? (data.streak || 0) + 1 : 1;
-            updates.streak = newStreak;
-          }
-
-          await updateDoc(userRef, updates);
+            currentPlan,
+            currentSubscriptionId,
+          });
         }
 
         setUser(firebaseUser);
+
+        // 🧠 Prefetch chapters and lessons in background
+        console.log("🚀 Prefetching chapters and lessons...");
+        try {
+          const chaptersSnap = await getDocs(collection(db, "chapters"));
+          const chapterPromises = chaptersSnap.docs.map(async (chapterDoc) => {
+            const chapterData = chapterDoc.data();
+            const lessonsSnap = await getDocs(
+              collection(db, "chapters", chapterDoc.id, "lessons")
+            );
+
+            const lessons = lessonsSnap.docs.map((d, i) => {
+              const data = d.data();
+              return {
+                ...data,
+                id: d.id,
+                docId: d.id,
+                duration: data.duration || 15,
+                title: data.title || `Lesson ${i + 1}`,
+                description: data.description || "",
+                videoUrl: data.videoUrl || "",
+                documents: data.documents || [],
+                createdAt: data.createdAt || null,
+              };
+            });
+
+            const totalDuration = lessons.reduce(
+              (sum, l) => sum + (l.duration || 15),
+              0
+            );
+
+            return {
+              ...chapterData,
+              id: chapterData.id || chapterDoc.id,
+              lessons,
+              duration: totalDuration,
+            };
+          });
+
+          const chaptersData = await Promise.all(chapterPromises);
+          chaptersData.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+
+          console.log("📦 Prefetched chapters and lessons:", chaptersData);
+          setPrefetchedLessonsData(chaptersData);
+
+          // ✅ Save to localStorage
+          localStorage.setItem("cachedLessons", JSON.stringify(chaptersData));
+          localStorage.setItem("cachedLessonsDate", new Date().toISOString());
+        } catch (err) {
+          console.error("❌ Failed to prefetch chapters:", err);
+        }
       } else {
+        console.log("👋 User signed out");
         setUser(null);
+        setPrefetchedLessonsData(null);
+        localStorage.removeItem("cachedLessons");
+        localStorage.removeItem("cachedLessonsDate");
       }
 
       setLoading(false);
@@ -151,19 +148,22 @@ export const AuthProvider = ({ children }) => {
 
     return () => unsubscribe();
   }, []);
+
   const fetchUserData = async (uid) => {
-  const docRef = doc(db, "users", uid);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { uid, ...docSnap.data() }; // include plan in data
-  }
-  return null;
-};
+    const docRef = doc(db, "users", uid);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return { uid, ...docSnap.data() };
+    }
+    return null;
+  };
 
   if (loading) return <Loader />;
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider
+      value={{ user, loading, prefetchedLessonsData, fetchUserData }}
+    >
       {children}
     </AuthContext.Provider>
   );

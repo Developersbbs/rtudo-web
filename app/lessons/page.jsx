@@ -8,9 +8,11 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
+
 // Lazy load heavy components
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 const Loader = dynamic(() => import("../components/Loader"), { ssr: false });
+
 
 // Lazy load icons to reduce bundle size
 import { 
@@ -272,8 +274,9 @@ const ChapterItem = memo(({
 });
 
 export default function ChaptersPage() {
-  const { user } = useAuth();
+  const { user,prefetchedLessonsData } = useAuth();
   const router = useRouter();
+
   
   // Consolidated state with better initial structure
   const [state, setState] = useState({
@@ -382,81 +385,88 @@ export default function ChaptersPage() {
   }, []);
 
   // Optimized data fetching with better error handling
-  const fetchAllData = useCallback(async () => {
-    if (!user?.uid) return;
+  const fetchAllData = useCallback(async (skipChapters = false) => {
+  if (!user?.uid) return;
 
-    try {
-      setState(prev => ({ ...prev, loading: true }));
+  try {
+    setState((prev) => ({ ...prev, loading: true }));
 
-      // Parallel requests for better performance
-      const promises = [
-        getDocs(collection(db, "chapters")),
-        getDocs(collection(db, "final-exams")),
-        getUserProgress(user.uid),
-        getDoc(doc(db, "users", user.uid, "subscriptions", "details"))
-      ];
+    const promises = [
+      skipChapters ? null : getDocs(collection(db, "chapters")),
+      getDocs(collection(db, "final-exams")),
+      getUserProgress(user.uid),
+      getDoc(doc(db, "users", user.uid, "subscriptions", "details"))
+    ];
 
-      const [chaptersSnap, examsSnap, userProgressData, subSnap] = await Promise.allSettled(promises);
+    const [chaptersSnap, examsSnap, userProgressData, subSnap] = await Promise.allSettled(promises);
 
-      // Process subscription safely
-      let subscriptionData = null;
-      let planData = null;
-      
-      if (subSnap.status === 'fulfilled' && subSnap.value.exists()) {
-        const data = subSnap.value.data();
-        const now = new Date();
-        if (data.status === "active" && new Date(data.endDate) > now) {
-          subscriptionData = data;
-          planData = data.plan;
-        }
+    let subscriptionData = null;
+    let planData = null;
+    
+    if (subSnap.status === 'fulfilled' && subSnap.value.exists()) {
+      const data = subSnap.value.data();
+      const now = new Date();
+      if (data.status === "active" && new Date(data.endDate) > now) {
+        subscriptionData = data;
+        planData = data.plan;
       }
-
-      // Process user progress safely
-      const processedProgress = userProgressData.status === 'fulfilled' 
-        ? processUserProgress(userProgressData.value)
-        : processUserProgress(null);
-
-      // Process chapters with error handling
-      let processedChapters = [];
-      if (chaptersSnap.status === 'fulfilled') {
-        const chaptersPromises = chaptersSnap.value.docs.map(processChapterData);
-        const chaptersResults = await Promise.allSettled(chaptersPromises);
-        
-        processedChapters = chaptersResults
-          .filter(result => result.status === 'fulfilled')
-          .map(result => result.value)
-          .sort((a, b) => parseInt(a.id) - parseInt(b.id));
-      }
-
-      // Process final exams safely
-      const processedExams = examsSnap.status === 'fulfilled'
-        ? examsSnap.value.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-        : [];
-
-      // Update state once with all data
-      setState(prev => ({
-        ...prev,
-        chapters: processedChapters,
-        subscription: subscriptionData,
-        userPlan: planData,
-        finalExams: processedExams,
-        userProgress: processedProgress,
-        loading: false
-      }));
-
-    } catch (err) {
-      console.error("⚠️ Error loading data:", err);
-      toast.error("Failed to load content. Please refresh.");
-      setState(prev => ({ ...prev, loading: false }));
     }
-  }, [user?.uid, processUserProgress, processChapterData]);
+
+    const processedProgress = userProgressData.status === 'fulfilled' 
+      ? processUserProgress(userProgressData.value)
+      : processUserProgress(null);
+
+    let processedChapters = [];
+    if (!skipChapters && chaptersSnap.status === 'fulfilled') {
+      const chaptersPromises = chaptersSnap.value.docs.map(processChapterData);
+      const chaptersResults = await Promise.allSettled(chaptersPromises);
+      
+      processedChapters = chaptersResults
+        .filter(result => result.status === 'fulfilled')
+        .map(result => result.value)
+        .sort((a, b) => parseInt(a.id) - parseInt(b.id));
+    }
+
+    const processedExams = examsSnap.status === 'fulfilled'
+      ? examsSnap.value.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      : [];
+
+    setState((prev) => ({
+      ...prev,
+      chapters: skipChapters ? prev.chapters : processedChapters,
+      subscription: subscriptionData,
+      userPlan: planData,
+      finalExams: processedExams,
+      userProgress: processedProgress,
+      loading: false,
+    }));
+  } catch (err) {
+    console.error("⚠️ Error loading data:", err);
+    toast.error("Failed to load content. Please refresh.");
+    setState((prev) => ({ ...prev, loading: false }));
+  }
+}, [user?.uid, processUserProgress, processChapterData]);
+
 
   // Effect with proper dependency management
   useEffect(() => {
-    if (user?.uid) {
-      fetchAllData();
-    }
-  }, [user?.uid, fetchAllData]);
+  if (!user?.uid) return;
+
+  if (prefetchedLessonsData && prefetchedLessonsData.length > 0) {
+    console.log("✅ Using prefetched lessons");
+    setState((prev) => ({
+      ...prev,
+      chapters: prefetchedLessonsData,
+    }));
+
+    // 🟢 Only fetch progress/subscription, skip chapters
+    fetchAllData(true); // skipChapters = true
+  } else {
+    console.log("📡 Fetching all data");
+    fetchAllData(false); // full fetch
+  }
+}, [user?.uid, prefetchedLessonsData, fetchAllData]);
+
 
   // Updated lesson click handler with better error handling
   const handleLessonClick = useCallback((lesson, chapter, lessonIndex) => {

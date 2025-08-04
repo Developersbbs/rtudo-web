@@ -48,6 +48,8 @@ export default function ExamPage() {
   const chunksRef = useRef([]);
   const recognitionRef = useRef(null);
   const micStreamRef = useRef(null);
+  const [audioPlayed, setAudioPlayed] = useState(false);
+  const audioRef = useRef(null);
 
 
   const getSectionIcon = (type) => {
@@ -180,11 +182,6 @@ export default function ExamPage() {
     setIsRecording(false);
   };
 
-  const copyTranscript = () => {
-    const fullTranscript = (liveTranscript + " " + interimTranscript).trim();
-    navigator.clipboard.writeText(fullTranscript);
-    toast.success("📋 Transcript copied to clipboard!");
-  };
   const handleSubmit = async () => {
   const auth = getAuth();
   const user = auth.currentUser;
@@ -279,7 +276,7 @@ Return ONLY "PASS" or "FAIL" based on this strict evaluation. An irrelevant resp
     return;
   }
 
-  if (hasSubmitted) {
+  if (hasSubmitted) { 
     toast.error("⚠️ You have already submitted this exam.");
     return;
   }
@@ -858,14 +855,25 @@ Return ONLY "PASS" or "FAIL" based on this strict evaluation. An irrelevant resp
       <audio
         controls
         onEnded={() => {
+
           setShowQuestions(true);
+          setAudioPlayed(true);
           setAnswers(new Array(exam.questions.length).fill(""));
           toast.success("🎧 Audio finished! Now answer the questions.", {
             duration: 3000,
             position: 'top-center',
           });
+          
         }}
-        className="w-full max-w-md mx-auto"
+        onPlay={(e) => {
+    if (audioPlayed) {
+      e.preventDefault();
+      e.target.pause();
+      toast.error("You can only play the audio once.");
+    }
+  }}
+  className="w-full max-w-md mx-auto"
+  ref={audioRef}
       >
         <source src={exam.audioUrl} type="audio/mpeg" />
         Your browser does not support the audio element.

@@ -54,29 +54,38 @@ export default function TodayProgressCard() {
 
       // Set XP
       setDailyXP(10); // fixed daily XP
+      
+      const today = dayjs().format("YYYY-MM-DD");
 
-      // Calculate streak
-      const dailyUsage = data.appUsage?.dailyUsage || [];
-      const dates = dailyUsage
-        .map((d) => d.date)
-        .filter(Boolean)
-        .sort((a, b) => dayjs(a).diff(dayjs(b)));
+const dailyUsage = data.appUsage?.dailyUsage ?? [];
 
-      let current = dayjs();
-      let tempStreak = 0;
+// 🧼 Step 1: Extract and normalize unique dates
+const dates = Array.from(
+  new Set(dailyUsage.map((entry) => dayjs(entry.date).format("YYYY-MM-DD")))
+).sort((a, b) => dayjs(b).diff(dayjs(a))); // descending
 
-      for (let i = dates.length - 1; i >= 0; i--) {
-        const date = dayjs(dates[i]);
-        if (date.isSame(current, "day")) {
-          tempStreak++;
-          current = current.subtract(1, "day");
-        } else {
-          break;
-        }
-      }
+// 🔁 Step 2: Calculate streak starting from today
+let streakCount = 0;
+let current = dayjs();
 
-      setStreak(tempStreak);
+for (let i = 0; i < dates.length; i++) {
+  if (dayjs(dates[i]).isSame(current, "day")) {
+    streakCount++;
+    current = current.subtract(1, "day");
+  } else {
+    break;
+  }
+}
 
+setStreak(streakCount);
+
+// ✅ Step 3: Save to Firestore (optional but recommended)
+await updateDoc(userRef, {
+  streak: streakCount,
+  lastStreakUpdate: new Date().toISOString(),
+});
+
+      
       // Get learningTime (e.g., "15 minutes", "1 hour")
       const learningTimeRaw = data.learningTime || "30 minutes";
       const learningTime = String(learningTimeRaw).toLowerCase();
@@ -103,26 +112,58 @@ export default function TodayProgressCard() {
     let lastSavedAt = Date.now();
 
     const saveProgress = async () => {
-      const now = Date.now();
-      const elapsedMin = Math.floor((now - lastSavedAt) / 60000);
-      if (elapsedMin <= 0) return;
+  const now = Date.now();
+  const elapsedMin = Math.floor((now - lastSavedAt) / 60000);
+  if (elapsedMin <= 0) return;
 
-      lastSavedAt = now;
+  lastSavedAt = now;
 
-      const snap = await getDoc(userRef);
-      if (!snap.exists()) return;
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) return;
 
-      const data = snap.data();
-      const saved = data.minutesToday || 0;
-      const isToday = data.minutesDate === todayStr;
+  const data = snap.data();
+  const saved = data.minutesToday || 0;
+  const isToday = data.minutesDate === todayStr;
 
-      await updateDoc(userRef, {
-        minutesToday: isToday ? saved + elapsedMin : elapsedMin,
-        minutesDate: todayStr,
-      });
+  // Update dailyUsage array
+  const existingUsage = data.appUsage?.dailyUsage || [];
+  const todayEntryIndex = existingUsage.findIndex((u) => u.date === todayStr);
 
-      setMinutesToday((prev) => (isToday ? prev + elapsedMin : elapsedMin));
+  let updatedDailyUsage;
+
+  if (todayEntryIndex === -1) {
+    // First session today
+    updatedDailyUsage = [
+      ...existingUsage,
+      {
+        date: todayStr,
+        lastUpdated: new Date().toISOString(),
+        sessionsCount: 1,
+        timeSpent: elapsedMin,
+      },
+    ];
+  } else {
+    // Update existing session
+    updatedDailyUsage = [...existingUsage];
+    const currentEntry = updatedDailyUsage[todayEntryIndex];
+
+    updatedDailyUsage[todayEntryIndex] = {
+      ...currentEntry,
+      lastUpdated: new Date().toISOString(),
+      sessionsCount: (currentEntry.sessionsCount || 0) + 1,
+      timeSpent: (currentEntry.timeSpent || 0) + elapsedMin,
     };
+  }
+
+  await updateDoc(userRef, {
+    minutesToday: isToday ? saved + elapsedMin : elapsedMin,
+    minutesDate: todayStr,
+    "appUsage.dailyUsage": updatedDailyUsage,
+  });
+
+  setMinutesToday((prev) => (isToday ? prev + elapsedMin : elapsedMin));
+};
+
 
     const interval = setInterval(saveProgress, 30000);
     window.addEventListener("beforeunload", saveProgress);

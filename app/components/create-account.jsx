@@ -49,7 +49,7 @@ export default function CreateAccount() {
     <main className="flex flex-col items-center justify-center min-h-screen px-4 py-8 bg-white text-center">
       <div className="mb-6">
         <Image
-          src="/assets/logo-light.png"
+          src="https://firebasestorage.googleapis.com/v0/b/tudo-english-app.appspot.com/o/app-assets%2Fassets%2Flogo-light.png?alt=media&token=5c8816e7-58b1-4761-a263-76bb034ae253"
           alt="R-Tudo Logo"
           unoptimized={true}
           width={120}

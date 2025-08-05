@@ -32,6 +32,13 @@ export default function SubscriptionsPlans() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [userPlan, setUserPlan] = useState(null);
   const [invoices, setInvoices] = useState([]);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+const [showModal, setShowModal] = useState(false);
+const [couponCode, setCouponCode] = useState("");
+const [couponError, setCouponError] = useState("");
+const [discountedAmount, setDiscountedAmount] = useState(null);
+const [appliedCoupon, setAppliedCoupon] = useState(null);
+
 
   const { user } = useAuth();
   const router = useRouter();
@@ -101,6 +108,76 @@ export default function SubscriptionsPlans() {
       popular: true,
     },
   };
+  const handlePlanClick = (plan) => {
+  setSelectedPlan(plan);
+  setShowModal(true);
+  setCouponCode("");
+  setAppliedCoupon(null);
+  setDiscountedAmount(null);
+};
+
+const handleApplyCoupon = async () => {
+  try {
+    setCouponError("");
+
+    const q = query(
+      collection(db, "coupons"),
+      where("code", "==", couponCode),
+      where("active", "==", true)
+    );
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      setCouponError("Invalid or expired coupon.");
+      return;
+    }
+
+    const doc = snapshot.docs[0];
+    const data = doc.data();
+
+    const now = new Date();
+    const validFrom = data.validFrom?.toDate?.();
+    const validTo = data.validTo?.toDate?.();
+
+    if ((validFrom && now < validFrom) || (validTo && now > validTo)) {
+      setCouponError("Coupon is not currently valid.");
+      return;
+    }
+
+    if (data.maxUses && data.usedCount >= data.maxUses) {
+      setCouponError("Coupon usage limit reached.");
+      return;
+    }
+
+    if (
+      data.applicableTo?.length &&
+      !data.applicableTo.includes(selectedPlan.id)
+    ) {
+      setCouponError("Coupon not applicable to this plan.");
+      return;
+    }
+
+    let finalPrice = selectedPlan.price;
+    if (data.type === "percentage") {
+      finalPrice = finalPrice - (finalPrice * data.value) / 100;
+    } else if (data.type === "fixed") {
+      finalPrice = Math.max(0, finalPrice - data.value);
+    }
+
+    setDiscountedAmount(finalPrice.toFixed(2));
+    setAppliedCoupon(data);
+    setCouponError("");
+  } catch (err) {
+    console.error("Coupon error:", err);
+    setCouponError("Something went wrong.");
+  }
+};
+
+const confirmCouponAndPay = () => {
+  setShowModal(false);
+  handlePayment(selectedPlan.id, discountedAmount);
+};
+
 
   const initializeRazorpay = () =>
     new Promise((resolve) => {
@@ -111,13 +188,13 @@ export default function SubscriptionsPlans() {
       document.body.appendChild(script);
     });
 
-  const createOrder = async (planId) => {
+  const createOrder = async (planId,amount) => {
     const response = await fetch("/api/create-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         planId,
-        amount: plans[planId].price * 100,
+        amount: amount * 100,
         currency: "INR",
       }),
     });
@@ -140,7 +217,7 @@ export default function SubscriptionsPlans() {
     return result;
   };
 
-  const handlePayment = async (planId) => {
+  const handlePayment = async (planId,finalAmount=null) => {
     try {
       if (!user?.uid) return toast.error("User not logged in");
 
@@ -157,14 +234,14 @@ export default function SubscriptionsPlans() {
       const isRazorpayLoaded = await initializeRazorpay();
       if (!isRazorpayLoaded) return toast.error("Razorpay SDK failed to load");
 
-      const orderData = await createOrder(planId);
+      const orderData = await createOrder(planId,finalAmount??plans[planId].price);
 
       const options = {
         key: key_id,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "Learning Platform",
-        description: `${plans[planId].name} Plan Subscription`,
+        name: "RTudo",
+        description: `${plans[planId].name} Plan Subscription${appliedCoupon?.code ? ` (Coupon: ${appliedCoupon.code})` : ""}`,
         order_id: orderData.id,
         handler: async function (response) {
           try {
@@ -230,6 +307,7 @@ export default function SubscriptionsPlans() {
       setLoading(null);
     }
   };
+  
 
   const PlanCard = ({ plan }) => {
     const isCurrentPlan = userPlan?.plan === plan.id;
@@ -320,6 +398,7 @@ export default function SubscriptionsPlans() {
   return (
     <div className="relative min-h-screen pb-24" style={{ backgroundColor: "var(--background)", color: "var(--text-color)" }}>
       {isVerifying && <Loader />}
+      
       <div className="fixed top-0 left-0 w-full z-10 shadow-sm border-b" style={{ backgroundColor: "var(--card-background)", borderColor: "var(--card-border)" }}>
         <div className="px-4 py-4 max-w-xl mx-auto text-center">
           <h1 className="text-2xl font-bold mb-1 text-[var(--color-primary)]">Choose Your Plan</h1>
@@ -330,8 +409,8 @@ export default function SubscriptionsPlans() {
       <div className="pt-[120px] px-4 max-w-xl mx-auto">
         {!userPlan && (
           <>
-            <PlanCard plan={plans.basic} />
-            <PlanCard plan={plans.pro} />
+            <PlanCard plan={plans.basic} onClick={()=>handlePlanClick(plans.basic)}/>
+            <PlanCard plan={plans.pro} onClick={()=>handlePlanClick(plans.pro)}/>
           </>
         )}
 
@@ -356,8 +435,56 @@ export default function SubscriptionsPlans() {
           </>
         )}
       </div>
+      
 
       <Navbar />
+      {showModal && selectedPlan && (
+                <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center px-4">
+                            <div className="bg-white dark:bg-[var(--card-background)] rounded-xl shadow-xl p-6 max-w-sm w-full">
+                              <h2 className="text-xl font-bold text-[var(--color-primary)] mb-2">
+              {selectedPlan.name} Plan Summary
+            </h2>
+            <p className="text-gray-700 dark:text-gray-300 mb-2">{selectedPlan.description}</p>
+            <p className="font-semibold mb-4">Price: ₹{selectedPlan.price}</p>
+            <div className="mb-4">
+              <label className="text-sm font-medium">Apply Coupon</label>
+              <input
+                type="text"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                className="w-full border rounded px-3 py-2 mt-1 dark:bg-transparent"
+                placeholder="Enter coupon code"
+              />
+              {couponError && <p className="text-red-600 text-sm mt-1">{couponError}</p>}
+              <button
+                className="mt-2 bg-[var(--color-primary)] text-white px-3 py-1 rounded"
+                onClick={handleApplyCoupon}
+              >
+                Apply
+              </button>
+            </div>
+            {discountedAmount && (
+              <p className="text-green-600 font-semibold mb-2">
+                ✅ Discounted Price: ₹{discountedAmount}
+              </p>
+            )}
+             <div className="flex justify-end gap-2">
+              <button onClick={() => setShowModal(false)} className="text-gray-600">
+                Cancel
+              </button>
+              <button
+                className="bg-green-600 text-white px-4 py-2 rounded"
+                onClick={confirmCouponAndPay}
+              >
+                Confirm & Pay
+              </button>
+            </div>
+
+                            </div>
+                </div>
+      )}
     </div>
+    
+    
   );
 }

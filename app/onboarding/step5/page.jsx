@@ -1,34 +1,30 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
-import Image from 'next/image';
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { ArrowLeft } from "lucide-react";
+import Image from "next/image";
 
 const levels = [
   {
-    title: 'App Store/Play Store',
-    image: '/icons/playstore.png',
+    title: "App Store/Play Store",
+    image: "/icons/playstore.png",
   },
   {
-    title: 'Social Media',
-    images: [
-      '/icons/fb.png',
-      '/icons/insta.png',
-      '/icons/linkedin.png',
-    ],
+    title: "Social Media",
+    images: ["/icons/fb.png", "/icons/insta.png", "/icons/linkedin.png"],
   },
   {
-    title: 'Friend/Family',
-    image: '/icons/friend.png',
+    title: "Friend/Family",
+    image: "/icons/friend.png",
   },
   {
-    title: 'Advertisement',
-    image: '/icons/ad.png',
+    title: "Advertisement",
+    image: "/icons/ad.png",
   },
   {
-    title: 'Search Engine',
-    image: '/icons/google.png',
+    title: "Search Engine",
+    image: "/icons/google.png",
   },
 ];
 
@@ -42,7 +38,7 @@ export default function HowDidYouFindUs() {
 
   const handleContinue = () => {
     if (selected) {
-      router.push('/main');
+      router.push("/main");
     }
   };
 
@@ -101,18 +97,48 @@ export default function HowDidYouFindUs() {
                   {images ? (
                     <div className="flex flex-col items-center justify-center">
                       <div className="flex gap-[1px] mb-[2px]">
-                        <Image src={images[0]} alt="fb" width={12} height={12} className="object-contain" />
-                        <Image src={images[1]} alt="insta" width={12} height={12} className="object-contain" />
+                        <Image
+                          src={images[0]}
+                          alt="fb"
+                          width={12}
+                          height={12}
+                          className="object-contain"
+                          unoptimized={true}
+                        />
+                        <Image
+                          src={images[1]}
+                          alt="insta"
+                          width={12}
+                          height={12}
+                          className="object-contain"
+                          unoptimized={true}
+                        />
                       </div>
-                      <Image src={images[2]} alt="linkedin" width={12} height={12} className="object-contain" />
+                      <Image
+                        src={images[2]}
+                        alt="linkedin"
+                        width={12}
+                        height={12}
+                        className="object-contain"
+                        unoptimized={true}
+                      />
                     </div>
                   ) : (
-                    <Image src={image} alt={title} width={24} height={24} className="object-contain" />
+                    <Image
+                      src={image}
+                      alt={title}
+                      width={24}
+                      height={24}
+                      className="object-contain"
+                      unoptimized={true}
+                    />
                   )}
                 </div>
 
                 <div>
-                  <h2 className={`font-semibold text-lg ${isSelected ? "text-white" : "text-gray-800"}`}>
+                  <h2
+                    className={`font-semibold text-lg ${isSelected ? "text-white" : "text-gray-800"}`}
+                  >
                     {title}
                   </h2>
                 </div>

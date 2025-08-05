@@ -32,6 +32,7 @@ export default function Home() {
         <Image
           src="/assets/logo-light.png"
           alt="R-Tudo Logo"
+          unoptimized={true}
           width={120}
           height={120}
           unoptimized={true}

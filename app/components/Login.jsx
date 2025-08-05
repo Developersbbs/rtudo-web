@@ -90,7 +90,14 @@ export default function Login() {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen px-4 py-8 bg-white text-center">
       <div className="mb-6">
-        <Image src="/assets/logo-light.png" alt="R-Tudo Logo" width={120} height={120} priority />
+        <Image
+          src="/assets/logo-light.png"
+          alt="R-Tudo Logo"
+          width={120}
+          height={120}
+          priority
+          unoptimized={true}
+        />
       </div>
 
       <h2 className="text-2xl font-semibold text-gray-800 mb-6 leading-snug">
@@ -101,7 +108,9 @@ export default function Login() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Login</h2>
-            <p className="text-gray-500 text-sm">Welcome back! Log in to continue</p>
+            <p className="text-gray-500 text-sm">
+              Welcome back! Log in to continue
+            </p>
           </div>
         </div>
 
@@ -129,7 +138,11 @@ export default function Login() {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-3.5 text-gray-500"
             >
-              {showPassword ? <AiOutlineEyeInvisible size={22} /> : <AiOutlineEye size={22} />}
+              {showPassword ? (
+                <AiOutlineEyeInvisible size={22} />
+              ) : (
+                <AiOutlineEye size={22} />
+              )}
             </button>
           </div>
 
@@ -154,7 +167,10 @@ export default function Login() {
         </form>
 
         <p className="text-sm text-center mt-6 text-[var(--color-primary)] font-medium">
-          <button onClick={() => router.push("/signup")} className="font-bold cursor-pointer">
+          <button
+            onClick={() => router.push("/signup")}
+            className="font-bold cursor-pointer"
+          >
             Don’t have an account? Sign Up
           </button>
         </p>

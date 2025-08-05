@@ -51,6 +51,7 @@ export default function CreateAccount() {
         <Image
           src="/assets/logo-light.png"
           alt="R-Tudo Logo"
+          unoptimized={true}
           width={120}
           height={120}
           priority
@@ -64,7 +65,9 @@ export default function CreateAccount() {
       <div className="w-full max-w-md mt-4 text-left">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
-          <p className="text-gray-500 text-sm">Create an account to start learning</p>
+          <p className="text-gray-500 text-sm">
+            Create an account to start learning
+          </p>
         </div>
 
         <form className="space-y-4" onSubmit={handleSignUp}>
@@ -91,7 +94,11 @@ export default function CreateAccount() {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-3.5 text-gray-500"
             >
-              {showPassword ? <AiOutlineEyeInvisible size={22} /> : <AiOutlineEye size={22} />}
+              {showPassword ? (
+                <AiOutlineEyeInvisible size={22} />
+              ) : (
+                <AiOutlineEye size={22} />
+              )}
             </button>
           </div>
 
@@ -109,7 +116,11 @@ export default function CreateAccount() {
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-3 top-3.5 text-gray-500"
             >
-              {showConfirmPassword ? <AiOutlineEyeInvisible size={22} /> : <AiOutlineEye size={22} />}
+              {showConfirmPassword ? (
+                <AiOutlineEyeInvisible size={22} />
+              ) : (
+                <AiOutlineEye size={22} />
+              )}
             </button>
           </div>
 
@@ -124,7 +135,10 @@ export default function CreateAccount() {
         </form>
 
         <p className="text-sm text-center mt-6 text-[var(--color-primary)] font-bold">
-          <button onClick={() => router.push("/login")} className="cursor-pointer">
+          <button
+            onClick={() => router.push("/login")}
+            className="cursor-pointer"
+          >
             Already have an account? Sign In
           </button>
         </p>

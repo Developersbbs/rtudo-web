@@ -1,19 +1,21 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import CreateAccount from '../components/create-account';
-import Login from '../components/Login';
-import { IoMail } from 'react-icons/io5';
-import GoogleLoginButton from '../components/GoogleLoginButton';
-import Image from 'next/image';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState } from "react";
+import CreateAccount from "../components/create-account";
+import Login from "../components/Login";
+import { IoMail } from "react-icons/io5";
+import GoogleLoginButton from "../components/GoogleLoginButton";
+import Image from "next/image";
+import { useSearchParams, useRouter } from "next/navigation";
 
 export default function Home() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const initialFormType = searchParams.get('formType');
+  const initialFormType = searchParams.get("formType");
   const [formType, setFormType] = useState(
-    initialFormType === 'login' || initialFormType === 'signup' ? initialFormType : null
+    initialFormType === "login" || initialFormType === "signup"
+      ? initialFormType
+      : null,
   );
 
   return (
@@ -24,6 +26,7 @@ export default function Home() {
           <Image
             src="/assets/logo-light.png"
             alt="R-Tudo Logo"
+            unoptimized={true}
             width={120}
             height={120}
             priority
@@ -41,7 +44,9 @@ export default function Home() {
 
             <div className="space-y-4 w-full">
               <button
-                onClick={() => {router.push("/signup")}}
+                onClick={() => {
+                  router.push("/signup");
+                }}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full bg-[var(--color-primary)] text-white font-semibold shadow-md hover:opacity-90 transition"
               >
                 <IoMail size={20} />
@@ -52,7 +57,7 @@ export default function Home() {
             </div>
 
             <p className="text-xs text-gray-500 mt-6">
-              By continuing, you agree to our{' '}
+              By continuing, you agree to our{" "}
               <a
                 href="https://r-tudo.com/privacy-policy.html"
                 className="text-[var(--color-primary)] underline"
@@ -61,26 +66,26 @@ export default function Home() {
               </a>
             </p>
           </>
-        ) : formType === 'signup' ? (
+        ) : formType === "signup" ? (
           <CreateAccount
             onClose={() => {
               setFormType(null);
-              router.push('/');
+              router.push("/");
             }}
             switchToLogin={() => {
-              setFormType('login');
-              router.push('/?formType=login');
+              setFormType("login");
+              router.push("/?formType=login");
             }}
           />
         ) : (
           <Login
             onClose={() => {
               setFormType(null);
-              router.push('/');
+              router.push("/");
             }}
             switchToSignup={() => {
-              setFormType('signup');
-              router.push('/?formType=signup');
+              setFormType("signup");
+              router.push("/?formType=signup");
             }}
           />
         )}

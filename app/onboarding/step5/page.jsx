@@ -8,23 +8,23 @@ import Image from "next/image";
 const levels = [
   {
     title: "App Store/Play Store",
-    image: "/icons/playstore.png",
+    image: "https://firebasestorage.googleapis.com/v0/b/tudo-english-app.appspot.com/o/app-assets%2Ficons%2Fplaystore.png?alt=media&token=8f1c4342-703c-4a28-9903-67a91bee5da2",
   },
   {
     title: "Social Media",
-    images: ["/icons/fb.png", "/icons/insta.png", "/icons/linkedin.png"],
+    images: ["https://firebasestorage.googleapis.com/v0/b/tudo-english-app.appspot.com/o/app-assets%2Ficons%2Ffb.png?alt=media&token=16c16432-2cd4-4540-bb9c-b87cb2ad5d29", "https://firebasestorage.googleapis.com/v0/b/tudo-english-app.appspot.com/o/app-assets%2Ficons%2Finsta.png?alt=media&token=5285ae00-5a88-480f-a1cf-17e6915287e5", "https://firebasestorage.googleapis.com/v0/b/tudo-english-app.appspot.com/o/app-assets%2Ficons%2Flinkedin.png?alt=media&token=682f2031-d077-44bc-a8c8-db4bf1c1bb5d"],
   },
   {
     title: "Friend/Family",
-    image: "/icons/friend.png",
+    image: "https://firebasestorage.googleapis.com/v0/b/tudo-english-app.appspot.com/o/app-assets%2Ficons%2Ffriend.png?alt=media&token=fbe2f2d2-9a99-465e-937d-58865c6fd7bd",
   },
   {
     title: "Advertisement",
-    image: "/icons/ad.png",
+    image: "https://firebasestorage.googleapis.com/v0/b/tudo-english-app.appspot.com/o/app-assets%2Ficons%2Fad.png?alt=media&token=4fd4acd9-f271-452f-b355-51bc247ac7e4",
   },
   {
     title: "Search Engine",
-    image: "/icons/google.png",
+    image: "https://firebasestorage.googleapis.com/v0/b/tudo-english-app.appspot.com/o/app-assets%2Ficons%2Fgoogle.png?alt=media&token=c72c8be7-6b4f-469b-8cf0-d3f89f62a63e",
   },
 ];
 

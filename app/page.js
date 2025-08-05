@@ -35,7 +35,6 @@ export default function Home() {
           unoptimized={true}
           width={120}
           height={120}
-          unoptimized={true}
         />
       </div>
 

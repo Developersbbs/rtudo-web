@@ -34,7 +34,7 @@ export default function Home() {
           alt="R-Tudo Logo"
           width={120}
           height={120}
-          priority    
+          unoptimized={true}
         />
       </div>
 
@@ -60,7 +60,6 @@ export default function Home() {
           Login here
         </button>
       </p>
-
     </main>
   );
 }

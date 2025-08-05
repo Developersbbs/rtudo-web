@@ -96,7 +96,7 @@ export default function Login() {
           width={120}
           height={120}
           priority
-          unoptimized={true}
+           
         />
       </div>
 

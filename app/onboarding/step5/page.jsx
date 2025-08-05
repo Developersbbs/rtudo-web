@@ -103,7 +103,7 @@ export default function HowDidYouFindUs() {
                           width={12}
                           height={12}
                           className="object-contain"
-                          unoptimized={true}
+                           
                         />
                         <Image
                           src={images[1]}
@@ -111,7 +111,7 @@ export default function HowDidYouFindUs() {
                           width={12}
                           height={12}
                           className="object-contain"
-                          unoptimized={true}
+                           
                         />
                       </div>
                       <Image
@@ -120,7 +120,7 @@ export default function HowDidYouFindUs() {
                         width={12}
                         height={12}
                         className="object-contain"
-                        unoptimized={true}
+                         
                       />
                     </div>
                   ) : (
@@ -130,7 +130,7 @@ export default function HowDidYouFindUs() {
                       width={24}
                       height={24}
                       className="object-contain"
-                      unoptimized={true}
+                       
                     />
                   )}
                 </div>

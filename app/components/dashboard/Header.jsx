@@ -25,7 +25,7 @@ export default function Header() {
         <Image
           src="https://firebasestorage.googleapis.com/v0/b/tudo-english-app.appspot.com/o/app-assets%2Fassets%2Flogo-light.png?alt=media&token=5c8816e7-58b1-4761-a263-76bb034ae253" // default logo
           alt="R-Tudo Logo"
-          unoptimized={true}
+           
           width={120}
           height={120}
         />
@@ -53,7 +53,7 @@ export default function Header() {
         alt="R-Tudo Logo"
         width={120}
         height={120}
-        unoptimized={true}
+         
       />
 
       <button

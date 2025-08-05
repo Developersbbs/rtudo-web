@@ -309,7 +309,7 @@ const confirmCouponAndPay = () => {
   };
   
 
-  const PlanCard = ({ plan }) => {
+  const PlanCard = ({ plan, onClick }) => {
     const isCurrentPlan = userPlan?.plan === plan.id;
 
     return (
@@ -348,7 +348,7 @@ const confirmCouponAndPay = () => {
         </ul>
         <div className="px-6 pb-6 pt-2">
           <button
-            onClick={() => handlePayment(plan.id)}
+            onClick={onClick}
             disabled={isCurrentPlan || loading === plan.id}
             className="w-full py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
             style={{ backgroundColor: plan.color, color: "#fff" }}
@@ -422,7 +422,7 @@ const confirmCouponAndPay = () => {
 
             {userPlan.plan === "basic" && (
               <>
-                <PlanCard plan={plans.pro} />
+                <PlanCard plan={plans.pro} onClick={() => handlePlanClick(plans.pro)} />
               </>
             )}
 

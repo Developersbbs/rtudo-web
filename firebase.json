@@ -1,29 +1,17 @@
 {
   "hosting": {
-    "public": ".next",
+
+    "public": ".next/standalone/.next/public",
+
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+
     "rewrites": [
       {
-        "source": "/_next/static/**",
-        "destination": "/_next/static/**"
-      },
-      {
-        "source": "/assets/**",
-        "destination": "/assets/**"
-      },
-      {
-        "source": "/icons/**",
-        "destination": "/icons/**"
-      },
-      {
-        "source": "/favicon.ico",
-        "destination": "/favicon.ico"
-      },
-      {
         "source": "**",
-        "function": "ssrapp"
+        "function": "ssrapp" 
       }
     ],
+
     "headers": [
       {
         "source": "/_next/image(**)",

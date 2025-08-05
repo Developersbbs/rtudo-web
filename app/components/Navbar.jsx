@@ -33,7 +33,6 @@ export default function Navbar() {
       ),
       key: "ai",
       isCenter: true,
-      unoptimized: true,
     },
     {
       href: "/subscription",
@@ -42,7 +41,7 @@ export default function Navbar() {
     },
     { href: "/profile", icon: <FaUser className="text-lg" />, key: "profile" },
     ,
-    unoptimized,
+    
   ];
 
   return (

@@ -1,0 +1,60 @@
+{
+  "hosting": {
+    "public": ".next",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "/_next/static/**",
+        "destination": "/_next/static/**"
+      },
+      {
+        "source": "/assets/**",
+        "destination": "/assets/**"
+      },
+      {
+        "source": "/icons/**",
+        "destination": "/icons/**"
+      },
+      {
+        "source": "/favicon.ico",
+        "destination": "/favicon.ico"
+      },
+      {
+        "source": "**",
+        "function": "ssrapp"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/_next/image(**)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "/_next/static/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000"
+          }
+        ]
+      }
+    ]
+  },
+  "functions": {
+    "source": "functions"
+  }
+}

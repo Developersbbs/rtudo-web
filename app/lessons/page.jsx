@@ -395,7 +395,7 @@ export default function ChaptersPage() {
       skipChapters ? null : getDocs(collection(db, "chapters")),
       getDocs(collection(db, "final-exams")),
       getUserProgress(user.uid),
-      getDoc(doc(db, "users", user.uid, "subscriptions", "details"))
+      getDoc(doc(db, "users", user.uid, "subscription", "details"))
     ];
 
     const [chaptersSnap, examsSnap, userProgressData, subSnap] = await Promise.allSettled(promises);

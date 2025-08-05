@@ -35,7 +35,7 @@ export default function NextLessonCard() {
       try {
         const [userSnap, subSnap, progressSnap] = await Promise.all([
           getDoc(doc(db, "users", user.uid)),
-          getDoc(doc(db, "users", user.uid, "subscriptions", "details")),
+          getDoc(doc(db, "users", user.uid, "subscription", "details")),
           getDoc(doc(db, "users", user.uid, "progress", "chapters")),
         ]);
 

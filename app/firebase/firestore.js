@@ -80,7 +80,7 @@ export const saveSubscriptionData = async (userId, subscriptionData, features) =
     updatedAt: serverTimestamp(),
   };
 
-  const userSubRef = doc(db, `users/${userId}/subscriptions`, 'details');
+  const userSubRef = doc(db, `users/${userId}/subscription`, 'details');
   const userSubData = {
     plan: subscriptionData.planId,
     amount: subscriptionData.amount,

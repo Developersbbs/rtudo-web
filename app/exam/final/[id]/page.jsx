@@ -1,20 +1,15 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { getAuth } from 'firebase/auth';
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  getDoc,
-} from 'firebase/firestore';
-import { db } from '@/app/firebase/firebaseConfig';
-import Loader from '@/app/components/Loader';
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { getAuth } from "firebase/auth";
+import { collection, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
+import { db } from "@/app/firebase/firebaseConfig";
+import Loader from "@/app/components/Loader";
 
 import {
   FiMic,
+  FiMicOff,
   FiStopCircle,
   FiCheckCircle,
   FiXCircle,
@@ -23,9 +18,13 @@ import {
   FiArrowLeft,
   FiBook,
   FiHeadphones,
-} from 'react-icons/fi';
+  FiEdit3,
+  FiMessageCircle,
+  FiVolume2,
+  FiRadio,
+} from "react-icons/fi";
 
-const SECTION_ORDER = ['reading', 'writing', 'speaking', 'listening'];
+const SECTION_ORDER = ["reading", "writing", "speaking", "listening"];
 
 export default function FinalExamPage() {
   const [loading, setLoading] = useState(true);
@@ -37,9 +36,12 @@ export default function FinalExamPage() {
   const [recording, setRecording] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [showConfirmExit, setShowConfirmExit] = useState(false);
-  const [showPassage, setShowPassage] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
+  const [audioPlayed, setAudioPlayed] = useState(false);
   const recognitionRef = useRef(null);
-  const finalTranscriptRef = useRef('');
+  const finalTranscriptRef = useRef("");
+  const liveTranscriptRef = useRef("");
+  const audioRef = useRef(null);
   const router = useRouter();
 
   const currentType = SECTION_ORDER[currentSectionIndex];
@@ -47,9 +49,25 @@ export default function FinalExamPage() {
   const totalQuestions = exam?.questions?.length || exam?.topics?.length || 1;
   const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
   const isLastSection = currentSectionIndex === SECTION_ORDER.length - 1;
+
+  const getSectionIcon = (type) => {
+    switch (type) {
+      case "reading":
+        return <FiBook className="text-xl" />;
+      case "writing":
+        return <FiEdit3 className="text-xl" />;
+      case "speaking":
+        return <FiMessageCircle className="text-xl" />;
+      case "listening":
+        return <FiHeadphones className="text-xl" />;
+      default:
+        return <FiBook className="text-xl" />;
+    }
+  };
+
   useEffect(() => {
     const fetchExams = async () => {
-      const snapshot = await getDocs(collection(db, 'final-exams'));
+      const snapshot = await getDocs(collection(db, "final-exams"));
       const exams = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const grouped = {};
       SECTION_ORDER.forEach((type) => {
@@ -68,12 +86,12 @@ export default function FinalExamPage() {
       const user = auth.currentUser;
       if (!user) return;
 
-      const resultRef = doc(db, `users/${user.uid}/final-exam`, 'result');
+      const resultRef = doc(db, `users/${user.uid}/final-exam`, "result");
       const resultSnap = await getDoc(resultRef);
 
       if (resultSnap.exists()) {
         const data = resultSnap.data();
-        if (data.result === 'passed') {
+        if (data.result === "passed") {
           setBlocked(true);
         }
       }
@@ -85,7 +103,7 @@ export default function FinalExamPage() {
   useEffect(() => {
     if (blocked) {
       const timeout = setTimeout(() => {
-        router.push('/dashboard');
+        router.push("/dashboard");
       }, 4000);
       return () => clearTimeout(timeout);
     }
@@ -94,7 +112,7 @@ export default function FinalExamPage() {
   useEffect(() => {
     if (currentSectionIndex >= SECTION_ORDER.length) {
       const timeout = setTimeout(() => {
-        router.push('/dashboard');
+        router.push("/dashboard");
       }, 5000);
       return () => clearTimeout(timeout);
     }
@@ -103,64 +121,95 @@ export default function FinalExamPage() {
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       e.preventDefault();
-      e.returnValue = '';
+      e.returnValue = "";
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
-  const startLiveTranscript = () => {
+  // Reset section-specific state when changing sections
+  useEffect(() => {
+    setCurrentQuestionIndex(0);
+    setShowQuestions(false);
+    setAudioPlayed(false);
+    setRecording(false);
+    finalTranscriptRef.current = "";
+    liveTranscriptRef.current = "";
+
+    // Stop any ongoing recording
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+  }, [currentSectionIndex]);
+
+  const startLiveTranscript = async () => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('Live speech recognition not supported in this browser.');
+      alert("Live speech recognition not supported in this browser.");
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.continuous = true;
-    recognition.interimResults = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    finalTranscriptRef.current = '';
-    recognitionRef.current = recognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = true;
 
-    recognition.onstart = () => setRecording(true);
+      finalTranscriptRef.current = "";
+      liveTranscriptRef.current = "";
+      recognitionRef.current = recognition;
 
-    recognition.onresult = (event) => {
-      let interimTranscript = '';
+      recognition.onstart = () => setRecording(true);
 
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const result = event.results[i];
-        const transcript = result[0].transcript;
+      recognition.onresult = (event) => {
+        let interimTranscript = "";
 
-        if (result.isFinal) {
-          finalTranscriptRef.current += transcript + ' ';
-        } else {
-          interimTranscript += transcript;
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const result = event.results[i];
+          const transcript = result[0].transcript;
+
+          if (result.isFinal) {
+            finalTranscriptRef.current += transcript + " ";
+          } else {
+            interimTranscript += transcript;
+          }
         }
-      }
 
-      const combinedTranscript = (finalTranscriptRef.current + interimTranscript).trim();
+        const combinedTranscript = (
+          finalTranscriptRef.current + interimTranscript
+        ).trim();
+        liveTranscriptRef.current = interimTranscript;
 
-      setSubmittedAnswers((prev) => ({
-        ...prev,
-        speaking: combinedTranscript,
-      }));
-    };
+        setSubmittedAnswers((prev) => ({
+          ...prev,
+          speaking: combinedTranscript,
+        }));
+      };
 
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      alert('Microphone access error. Please allow mic access and try again.');
-      setRecording(false);
-    };
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+        alert(
+          "Microphone access error. Please allow mic access and try again."
+        );
+        setRecording(false);
+      };
 
-    recognition.onend = () => {
-      setRecording(false);
-    };
+      recognition.onend = () => {
+        setRecording(false);
+        liveTranscriptRef.current = "";
+      };
 
-    recognition.start();
+      recognition.start();
+    } catch (err) {
+      alert(
+        "Microphone access denied or not supported. Please allow microphone access."
+      );
+    }
   };
 
   const stopRecording = () => {
@@ -171,16 +220,17 @@ export default function FinalExamPage() {
   };
 
   const handleNext = () => {
-    if (exam.type === 'reading' || exam.type === 'listening') {
-      const currentAnswer = submittedAnswers?.[exam.type]?.[currentQuestionIndex];
+    if (exam.type === "reading" || exam.type === "listening") {
+      const currentAnswer =
+        submittedAnswers?.[exam.type]?.[currentQuestionIndex];
       if (currentAnswer === undefined) {
-        alert('Please answer the current question before proceeding.');
+        alert("Please answer the current question before proceeding.");
         return;
       }
-    } else if (exam.type === 'writing' || exam.type === 'speaking') {
+    } else if (exam.type === "writing" || exam.type === "speaking") {
       const currentAnswer = submittedAnswers?.[exam.type];
-      if (!currentAnswer || currentAnswer.trim() === '') {
-        alert('Please provide an answer before proceeding.');
+      if (!currentAnswer || currentAnswer.trim() === "") {
+        alert("Please provide an answer before proceeding.");
         return;
       }
     }
@@ -188,25 +238,25 @@ export default function FinalExamPage() {
     if (isLastQuestion) {
       handleSubmit();
     } else {
-      setCurrentQuestionIndex(prev => prev + 1);
+      setCurrentQuestionIndex((prev) => prev + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+      setCurrentQuestionIndex((prev) => prev - 1);
     }
   };
 
   const handleSubmit = async () => {
     const auth = getAuth();
     const user = auth.currentUser;
-    if (!user) return alert('Login required');
+    if (!user) return alert("Login required");
 
     let score = 0;
     let totalScore = { ...scores };
 
-    if (exam.type === 'reading' || exam.type === 'listening') {
+    if (exam.type === "reading" || exam.type === "listening") {
       const userAnswers = submittedAnswers[exam.type];
       let correctCount = 0;
 
@@ -218,20 +268,21 @@ export default function FinalExamPage() {
 
       score = Math.round((correctCount / exam.questions.length) * 100);
     }
-     if (exam.type === 'writing' || exam.type === 'speaking') {
+
+    if (exam.type === "writing" || exam.type === "speaking") {
       const response = submittedAnswers[exam.type];
       const question =
-        exam.type === 'writing'
+        exam.type === "writing"
           ? exam.questions?.[0]?.question
           : exam.topics?.[0]?.topic;
 
       if (response && question) {
-        const aiRes = await fetch('/api/chat', {
-          method: 'POST',
+        const aiRes = await fetch("/api/chat", {
+          method: "POST",
           body: JSON.stringify({
             messages: [
               {
-                role: 'user',
+                role: "user",
                 text: `You are an IELTS ${exam.type} examiner. Follow these strict rules:
 
 Step 1: Relevance Check  
@@ -249,14 +300,13 @@ Return only the final score. No explanation. No words. Only the number.
 
 Question: ${question}
 Answer: ${response}`,
-              }
+              },
             ],
           }),
         });
 
-
         const data = await aiRes.json();
-        const reply = data.reply || '';
+        const reply = data.reply || "";
         const match = reply.match(/\d{1,3}/);
         score = match ? Math.min(parseInt(match[0]), 100) : 0;
       }
@@ -274,11 +324,11 @@ Answer: ${response}`,
       );
       const passedAll = Object.values(totalScore).every((s) => s >= 80);
 
-      const resultRef = doc(db, `users/${user.uid}/final-exam`, 'result');
+      const resultRef = doc(db, `users/${user.uid}/final-exam`, "result");
       await setDoc(resultRef, {
         ...totalScore,
         total,
-        result: passedAll ? 'passed' : 'failed',
+        result: passedAll ? "passed" : "failed",
         submittedAt: new Date(),
       });
 
@@ -290,12 +340,18 @@ Answer: ${response}`,
 
   if (blocked) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: "var(--background)" }}
+      >
         <div className="text-center py-16 card rounded-2xl shadow-xl max-w-md mx-4">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <FiCheckCircle className="text-2xl text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-color)' }}>
+          <h2
+            className="text-2xl font-bold mb-4"
+            style={{ color: "var(--text-color)" }}
+          >
             You've Already Passed!
           </h2>
           <p className="muted-text mb-2">
@@ -311,33 +367,60 @@ Answer: ${response}`,
     return <p className="text-center text-red-500">No exam found</p>;
 
   if (currentSectionIndex >= SECTION_ORDER.length) {
-    const passedAll = Object.values(scores).every((s) => s >= 50);
+    const passedAll = Object.values(scores).every((s) => s >= 80);
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: "var(--background)" }}
+      >
         <div className="w-full max-w-xl mx-4 bg-white rounded-3xl shadow-lg p-8 md:p-10 border border-[var(--card-border)]">
           <div className="flex flex-col items-center text-center">
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${passedAll ? 'bg-green-100' : 'bg-red-100'}`}>
-              <FiBarChart2 className={`text-3xl ${passedAll ? 'text-green-600' : 'text-red-600'}`} />
+            <div
+              className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${
+                passedAll ? "bg-green-100" : "bg-red-100"
+              }`}
+            >
+              <FiBarChart2
+                className={`text-3xl ${
+                  passedAll ? "text-green-600" : "text-red-600"
+                }`}
+              />
             </div>
 
-            <h2 className="text-3xl font-bold mb-6" style={{ color: 'var(--text-color)' }}>
+            <h2
+              className="text-3xl font-bold mb-6"
+              style={{ color: "var(--text-color)" }}
+            >
               Final Exam Result
             </h2>
 
             <div className="w-full space-y-4 mb-6">
               {SECTION_ORDER.map((type) => (
-                <div key={type} className="flex justify-between items-center bg-[var(--accent)] px-5 py-3 rounded-xl text-sm md:text-base">
-                  <span className="capitalize font-medium" style={{ color: 'var(--text-color)' }}>
+                <div
+                  key={type}
+                  className="flex justify-between items-center bg-[var(--accent)] px-5 py-3 rounded-xl text-sm md:text-base"
+                >
+                  <span
+                    className="capitalize font-medium"
+                    style={{ color: "var(--text-color)" }}
+                  >
                     {type}
                   </span>
-                  <span className="font-bold" style={{ color: 'var(--text-color)' }}>
+                  <span
+                    className="font-bold"
+                    style={{ color: "var(--text-color)" }}
+                  >
                     {scores[type] || 0} / 100
                   </span>
                 </div>
               ))}
             </div>
 
-            <div className={`text-2xl font-bold flex items-center justify-center gap-2 mb-2 ${passedAll ? 'text-green-600' : 'text-red-500'}`}>
+            <div
+              className={`text-2xl font-bold flex items-center justify-center gap-2 mb-2 ${
+                passedAll ? "text-green-600" : "text-red-500"
+              }`}
+            >
               {passedAll ? (
                 <>
                   <FiCheckCircle /> Passed
@@ -349,7 +432,9 @@ Answer: ${response}`,
               )}
             </div>
 
-            <p className="text-sm text-gray-500 mt-2">Redirecting to dashboard...</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Redirecting to dashboard...
+            </p>
           </div>
         </div>
       </div>
@@ -357,381 +442,506 @@ Answer: ${response}`,
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--background)' }}>
-      {/* Fixed Header */}
-      <div className="sticky top-0 z-10 border-b" style={{ backgroundColor: 'var(--card-background)', borderColor: 'var(--card-border)' }}>
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
-                {exam.title}
-              </h1>
-              <p className="text-sm muted-text">Section {currentSectionIndex + 1} of {SECTION_ORDER.length} • {currentType.charAt(0).toUpperCase() + currentType.slice(1)}</p>
-            </div>
-            <button
-              onClick={() => setShowConfirmExit(true)}
-              className="px-4 py-2 text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors font-medium text-sm"
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: "var(--background)" }}
+    >
+      <div className="container p-6 max-w-3xl mx-auto">
+        {/* Header with Back Button */}
+        <button
+          onClick={() => setShowConfirmExit(true)}
+          className="flex items-center gap-2 mb-4 text-sm font-medium hover:opacity-80 transition-opacity"
+          style={{ color: "var(--color-primary)" }}
+        >
+          <div
+            className="w-8 h-8 rounded-full border flex items-center justify-center hover:bg-opacity-10 hover:bg-current transition-colors"
+            style={{ borderColor: "var(--card-border)" }}
+          >
+            <FiArrowLeft className="text-lg" />
+          </div>
+          Exit Exam
+        </button>
+
+        {/* Section Header */}
+        <div className="flex items-center gap-3 mb-6">
+          {getSectionIcon(currentType)}
+          <div>
+            <h1
+              className="text-2xl font-bold capitalize"
+              style={{ color: "var(--color-primary)" }}
             >
-              Exit
-            </button>
+              {exam.title}
+            </h1>
+            <p className="text-sm muted-text">
+              Section {currentSectionIndex + 1} of {SECTION_ORDER.length} •
+              Final Exam
+            </p>
           </div>
-          
-          {/* Progress Bar */}
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-            <div 
-              className="h-2 rounded-full transition-all duration-300"
-              style={{ 
-                background: 'var(--color-primary)',
-                width: `${((currentSectionIndex) / SECTION_ORDER.length) * 100}%` 
-              }}
-            ></div>
-          </div>
-
-          {/* Question Progress for Reading/Listening */}
-          {(exam.type === 'reading' || exam.type === 'listening') && (
-            <div className="flex justify-between items-center text-sm">
-              <span className="muted-text">Question {currentQuestionIndex + 1} of {totalQuestions}</span>
-              <div className="flex gap-1">
-                {Array.from({ length: totalQuestions }, (_, i) => (
-                  <div
-                    key={i}
-                    className="w-2 h-2 rounded-full"
-                    style={{
-                      backgroundColor: i < currentQuestionIndex 
-                        ? '#10b981' 
-                        : i === currentQuestionIndex 
-                        ? 'var(--color-primary)' 
-                        : '#e5e7eb'
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex">
-        {/* Sidebar for Reading/Listening */}
-        {(exam.type === 'reading' || exam.type === 'listening') && (
-          <div className="w-1/2 border-r overflow-y-auto" style={{ borderColor: 'var(--card-border)' }}>
-            <div className="p-6">
-              {exam.type === 'reading' && (
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <FiBook className="text-lg" style={{ color: 'var(--color-primary)' }} />
-                    <h3 className="font-bold" style={{ color: 'var(--color-primary)' }}>Reading Passage</h3>
-                  </div>
-                  <div className="prose max-w-none">
-                    <p className="leading-relaxed text-sm" style={{ color: 'var(--text-color)' }}>
-                      {exam.passage}
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              {exam.type === 'listening' && (
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <FiHeadphones className="text-lg" style={{ color: 'var(--color-primary)' }} />
-                    <h3 className="font-bold" style={{ color: 'var(--color-primary)' }}>Audio Recording</h3>
-                  </div>
-                  <audio controls className="w-full mb-4">
-                    <source src={exam.audioUrl} type="audio/mpeg" />
-                    Your browser does not support the audio element.
-                  </audio>
-                  <p className="text-sm muted-text">
-                    Listen to the audio carefully before answering the questions.
-                  </p>
-                </div>
-              )}
-            </div>
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+            <div
+              className="h-2 rounded-full transition-all duration-300"
+              style={{
+                background: "var(--color-primary)",
+                width: `${(currentSectionIndex / SECTION_ORDER.length) * 100}%`,
+              }}
+            />
           </div>
-        )}
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>
+              Progress: {currentSectionIndex}/{SECTION_ORDER.length} sections
+            </span>
+            <span>
+              {Math.round((currentSectionIndex / SECTION_ORDER.length) * 100)}%
+              complete
+            </span>
+          </div>
+        </div>
 
-        {/* Question Panel */}
-        <div className={`${(exam.type === 'reading' || exam.type === 'listening') ? 'w-1/2' : 'w-full'} flex flex-col`}>
-          <div className="flex-1 overflow-y-auto p-6">
-            {/* Reading Questions */}
-            {exam.type === 'reading' && exam.questions?.[currentQuestionIndex] && (
-              <div className="space-y-6">
-                <div className="bg-[var(--accent)] rounded-lg p-4">
-                  <h3 className="font-bold mb-3" style={{ color: 'var(--text-color)' }}>
-                    Question {currentQuestionIndex + 1}
-                  </h3>
-                  <p className="leading-relaxed" style={{ color: 'var(--text-color)' }}>
+        {/* READING SECTION */}
+        {exam.type === "reading" && (
+          <div className="mt-6 space-y-6">
+            {!showQuestions ? (
+              <>
+                <div className="card rounded-xl p-6 shadow">
+                  <h2
+                    className="text-lg font-semibold mb-3 flex items-center gap-2"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    <FiBook />
+                    Reading Passage
+                  </h2>
+                  <p
+                    className="text-sm leading-relaxed whitespace-pre-line"
+                    style={{ color: "var(--text-color)" }}
+                  >
+                    {exam.passage}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowQuestions(true)}
+                  className="w-full py-3 px-4 rounded-xl shadow flex items-center justify-center gap-2 font-medium hover:opacity-80 transition-opacity"
+                  style={{
+                    border: "1px solid var(--color-primary)",
+                    color: "var(--color-primary)",
+                    backgroundColor: "transparent",
+                  }}
+                >
+                  <span className="text-xl">❓</span>
+                  View Questions
+                  <FiArrowRight />
+                </button>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="card rounded-xl p-5 shadow-md">
+                  <p
+                    className="text-base font-medium mb-4 flex items-start gap-2"
+                    style={{ color: "var(--text-color)" }}
+                  >
+                    <span
+                      className="px-2 py-1 rounded text-xs font-semibold"
+                      style={{
+                        backgroundColor: "var(--accent)",
+                        color: "var(--color-primary)",
+                      }}
+                    >
+                      Q{currentQuestionIndex + 1}
+                    </span>
                     {exam.questions[currentQuestionIndex].question}
                   </p>
-                </div>
-                
-                <div className="space-y-3">
-                  {exam.questions[currentQuestionIndex].options.map((opt, i) => {
-                    const isSelected = submittedAnswers?.reading?.[currentQuestionIndex] === i;
-                    return (
-                      <label
-                        key={i}
-                        className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                          isSelected ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10' : 'border-[var(--card-border)] hover:border-[var(--color-primary)]/50'
-                        }`}
-                      >
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                          isSelected ? 'border-[var(--color-primary)] bg-[var(--color-primary)]' : 'border-gray-300'
-                        }`}>
-                          {isSelected && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                        </div>
-                        <span className={`flex-1 ${isSelected ? 'font-medium' : ''}`} style={{ color: 'var(--text-color)' }}>
-                          {opt}
-                        </span>
-                        <input
-                          type="radio"
-                          name={`reading-${currentQuestionIndex}`}
-                          className="sr-only"
-                          checked={isSelected}
-                          onChange={() =>
-                            setSubmittedAnswers((prev) => ({
-                              ...prev,
-                              reading: {
-                                ...(prev.reading || {}),
-                                [currentQuestionIndex]: i,
-                              },
-                            }))
-                          }
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
-            {/* Listening Questions */}
-            {exam.type === 'listening' && exam.questions?.[currentQuestionIndex] && (
-              <div className="space-y-6">
-                <div className="bg-[var(--accent)] rounded-lg p-4">
-                  <h3 className="font-bold mb-3" style={{ color: 'var(--text-color)' }}>
-                    Question {currentQuestionIndex + 1}
-                  </h3>
-                  <p className="leading-relaxed" style={{ color: 'var(--text-color)' }}>
-                    {exam.questions[currentQuestionIndex].question}
-                  </p>
-                </div>
-                
-                <div className="space-y-3">
-                  {exam.questions[currentQuestionIndex].options.map((opt, i) => {
-                    const isSelected = submittedAnswers?.listening?.[currentQuestionIndex] === i;
-                    return (
-                      <label
-                        key={i}
-                        className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                          isSelected ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10' : 'border-[var(--card-border)] hover:border-[var(--color-primary)]/50'
-                        }`}
-                      >
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                          isSelected ? 'border-[var(--color-primary)] bg-[var(--color-primary)]' : 'border-gray-300'
-                        }`}>
-                          {isSelected && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                        </div>
-                        <span className={`flex-1 ${isSelected ? 'font-medium' : ''}`} style={{ color: 'var(--text-color)' }}>
-                          {opt}
-                        </span>
-                        <input
-                          type="radio"
-                          name={`listening-${currentQuestionIndex}`}
-                          className="sr-only"
-                          checked={isSelected}
-                          onChange={() =>
-                            setSubmittedAnswers((prev) => ({
-                              ...prev,
-                              listening: {
-                                ...(prev.listening || {}),
-                                [currentQuestionIndex]: i,
-                              },
-                            }))
-                          }
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Writing */}
-            {exam.type === 'writing' && (
-  <div className="space-y-5">
-    {/* Image (if available) */}
-    {exam.questions?.[0]?.imageUrl && (
-      <div className="text-center">
-        <img
-          src={exam.questions[0].imageUrl}
-          alt="Writing prompt"
-          className="rounded-xl max-w-full max-h-40 object-cover mx-auto shadow-md"
-        />
-      </div>
-    )}
-
-    {/* Task Box */}
-    <div className="bg-[var(--accent)] rounded-xl p-3 shadow-sm">
-      <h3 className="font-semibold mb-2 text-base" style={{ color: 'var(--text-color)' }}>
-        Writing Task
-      </h3>
-      <p className="text-sm leading-snug" style={{ color: 'var(--text-color)' }}>
-        {exam.questions?.[0]?.question}
-      </p>
-    </div>
-
-    {/* Answer Input */}
-    <div className="space-y-2">
-      <textarea
-        rows={6}
-        placeholder="Write your response..."
-        className="w-full border rounded-lg p-3 focus:outline-none focus:border-[var(--color-primary)] transition-colors duration-200 resize-none"
-        style={{
-          backgroundColor: 'var(--card-background)',
-          borderColor: 'var(--card-border)',
-          color: 'var(--text-color)'
-        }}
-        value={submittedAnswers.writing || ''}
-        onChange={(e) =>
-          setSubmittedAnswers({
-            ...submittedAnswers,
-            writing: e.target.value,
-          })
-        }
-      />
-      <div className="text-right text-xs text-gray-500">
-        {(submittedAnswers.writing || '').length} characters
-      </div>
-    </div>
-  </div>
-)}
-
-
-            {/* Speaking */}
-            {exam.type === 'speaking' && (
-              <div className="space-y-6">
-                <div className="bg-[var(--accent)] rounded-lg p-4">
-                  <h3 className="font-bold mb-3" style={{ color: 'var(--text-color)' }}>Speaking Task</h3>
-                  <p className="leading-relaxed mb-3" style={{ color: 'var(--text-color)' }}>
-                    {exam.topics?.[0]?.topic}
-                  </p>
-                  <p className="text-sm muted-text">
-                    {exam.topics?.[0]?.instructions}
-                  </p>
-                </div>
-
-                <div className="text-center">
-                  {recording ? (
-                    <button
-                      onClick={stopRecording}
-                      className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold flex items-center gap-2 mx-auto transition-colors duration-200"
-                    >
-                      <FiStopCircle className="text-lg" /> Stop Recording
-                    </button>
-                  ) : (
-                    <button
-                      onClick={startLiveTranscript}
-                      className="px-6 py-3 text-white rounded-lg font-semibold flex items-center gap-2 mx-auto transition-all duration-200 hover:opacity-90"
-                      style={{ backgroundColor: 'var(--color-primary)' }}
-                    >
-                      <FiMic className="text-lg" /> Start Speaking
-                    </button>
-                  )}
-                </div>
-
-                <div className="border-2 rounded-lg p-4 min-h-[150px]" style={{ 
-                  backgroundColor: 'var(--secondary-background)',
-                  borderColor: 'var(--card-border)'
-                }}>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-color)' }}>
-                    <div className={`w-3 h-3 rounded-full ${recording ? 'bg-red-500 animate-pulse' : 'bg-gray-400'}`}></div>
-                    Live Transcript
-                  </h4>
-                  <div className="leading-relaxed whitespace-pre-wrap text-sm" style={{ color: 'var(--text-color)' }}>
-                    {submittedAnswers.speaking || (
-                      <span className="muted-text italic">
-                        🎤 Click "Start Speaking" to begin recording your response...
-                      </span>
+                  <div className="space-y-3">
+                    {exam.questions[currentQuestionIndex].options.map(
+                      (opt, idx) => {
+                        const isSelected =
+                          submittedAnswers?.reading?.[currentQuestionIndex] ===
+                          idx;
+                        return (
+                          <label
+                            key={idx}
+                            className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border ${
+                              isSelected
+                                ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10"
+                                : "border-[var(--card-border)]"
+                            }`}
+                            style={{
+                              backgroundColor: "var(--card-background)",
+                              color: "var(--text-color)",
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              name={`reading-q${currentQuestionIndex}`}
+                              checked={isSelected}
+                              onChange={() =>
+                                setSubmittedAnswers((prev) => ({
+                                  ...prev,
+                                  reading: {
+                                    ...(prev.reading || {}),
+                                    [currentQuestionIndex]: idx,
+                                  },
+                                }))
+                              }
+                              className="w-4 h-4"
+                              style={{ accentColor: "var(--color-primary)" }}
+                            />
+                            <span className="text-sm">{opt}</span>
+                          </label>
+                        );
+                      }
                     )}
                   </div>
                 </div>
               </div>
             )}
           </div>
+        )}
 
-          {/* Fixed Navigation Footer */}
-          <div className="border-t p-4" style={{ backgroundColor: 'var(--card-background)', borderColor: 'var(--card-border)' }}>
-            <div className="flex justify-between items-center">
+        {/* WRITING SECTION */}
+        {exam.type === "writing" && (
+          <div className="mt-6 space-y-6">
+            {exam.questions?.map((q, i) => {
+              const answer = submittedAnswers.writing || "";
+              const wordCount = answer
+                .trim()
+                .split(/\s+/)
+                .filter(Boolean).length;
+
+              return (
+                <div key={i} className="card rounded-xl p-6 shadow">
+                  {q.imageUrl && (
+                    <img
+                      src={q.imageUrl}
+                      alt="writing prompt"
+                      className="w-full h-40 object-contain rounded-md mb-4"
+                    />
+                  )}
+
+                  <p
+                    className="text-md font-medium mb-3"
+                    style={{ color: "var(--text-color)" }}
+                  >
+                    {q.question}
+                  </p>
+
+                  <div className="flex items-center gap-2 mb-3">
+                    <span
+                      className="text-sm"
+                      style={{ color: "var(--muted-text)" }}
+                    >
+                      📝 Word count: {wordCount} / {q.minWords || 150} minimum
+                    </span>
+                    {wordCount >= (q.minWords || 150) && (
+                      <FiCheckCircle className="text-green-500 text-sm" />
+                    )}
+                  </div>
+
+                  <textarea
+                    value={answer}
+                    onChange={(e) =>
+                      setSubmittedAnswers((prev) => ({
+                        ...prev,
+                        writing: e.target.value,
+                      }))
+                    }
+                    placeholder="Write your answer here..."
+                    className="w-full min-h-[150px] border p-3 rounded-lg text-sm focus:outline-none focus:ring-2 card resize-none"
+                    style={{
+                      borderColor:
+                        wordCount >= (q.minWords || 150)
+                          ? "var(--color-primary)"
+                          : "var(--card-border)",
+                      color: "var(--text-color)",
+                      backgroundColor: "var(--card-background)",
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* SPEAKING SECTION */}
+        {exam.type === "speaking" && (
+          <div className="mt-6 space-y-6">
+            <div className="card rounded-xl p-6 shadow">
+              <h3
+                className="font-bold mb-3"
+                style={{ color: "var(--text-color)" }}
+              >
+                Speaking Task
+              </h3>
+              <p
+                className="leading-relaxed mb-3"
+                style={{ color: "var(--text-color)" }}
+              >
+                {exam.topics?.[0]?.topic}
+              </p>
+              <p className="text-sm muted-text">
+                {exam.topics?.[0]?.instructions}
+              </p>
+            </div>
+
+            <div className="text-center space-y-4">
+              <button
+                onClick={recording ? stopRecording : startLiveTranscript}
+                className={`w-20 h-20 rounded-full shadow-lg flex items-center justify-center text-3xl text-white transition-all duration-200 hover:scale-105 ${
+                  recording ? "bg-red-600 animate-pulse" : ""
+                }`}
+                style={{
+                  backgroundColor: recording
+                    ? undefined
+                    : "var(--color-primary)",
+                }}
+              >
+                {recording ? <FiMicOff /> : <FiMic />}
+              </button>
+
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--text-color)" }}
+              >
+                {recording
+                  ? "🔴 Recording in progress..."
+                  : "Press to start recording"}
+              </p>
+            </div>
+
+            {(submittedAnswers.speaking || liveTranscriptRef.current) && (
+              <div className="card rounded-xl p-4">
+                <h4
+                  className="font-semibold text-sm flex items-center gap-2 mb-3"
+                  style={{ color: "var(--color-primary)" }}
+                >
+                  <FiRadio />
+                  Live Transcript
+                </h4>
+                <p
+                  className="text-sm whitespace-pre-wrap leading-relaxed"
+                  style={{ color: "var(--text-color)" }}
+                >
+                  <span className="font-medium">
+                    {submittedAnswers.speaking}
+                  </span>
+                  {liveTranscriptRef.current && (
+                    <span className="italic text-[var(--muted-text)]">
+                      {" "}
+                      {liveTranscriptRef.current}
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* LISTENING SECTION */}
+        {exam.type === "listening" && (
+          <div className="mt-6 space-y-6">
+            {!showQuestions ? (
+              <div className="card rounded-xl p-6 shadow text-center">
+                <h3
+                  className="text-lg font-semibold mb-2 flex items-center justify-center gap-2"
+                  style={{ color: "var(--color-primary)" }}
+                >
+                  <FiVolume2 />
+                  Listening Comprehension Test
+                </h3>
+                <p
+                  className="text-sm mb-4"
+                  style={{ color: "var(--muted-text)" }}
+                >
+                  Listen carefully to the audio. Questions will appear after it
+                  finishes.
+                </p>
+
+                <audio
+                  controls
+                  onEnded={() => {
+                    setShowQuestions(true);
+                    setAudioPlayed(true);
+                  }}
+                  onPlay={(e) => {
+                    if (audioPlayed) {
+                      e.preventDefault();
+                      e.target.pause();
+                      alert("You can only play the audio once.");
+                    }
+                  }}
+                  className="w-full max-w-md mx-auto"
+                  ref={audioRef}
+                >
+                  <source src={exam.audioUrl} type="audio/mpeg" />
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            ) : (
+              <div className="card rounded-xl p-5 shadow space-y-6">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="px-2 py-1 rounded text-xs font-semibold"
+                    style={{
+                      backgroundColor: "var(--accent)",
+                      color: "var(--color-primary)",
+                    }}
+                  >
+                    Q{currentQuestionIndex + 1}
+                  </span>
+                  <p
+                    className="font-medium text-base"
+                    style={{ color: "var(--text-color)" }}
+                  >
+                    {exam.questions[currentQuestionIndex]?.question}
+                  </p>
+                </div>
+
+                <ul className="space-y-3">
+                  {exam.questions[currentQuestionIndex]?.options.map(
+                    (opt, idx) => {
+                      const isSelected =
+                        submittedAnswers?.listening?.[currentQuestionIndex] ===
+                        idx;
+                      return (
+                        <li key={idx}>
+                          <label
+                            className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border ${
+                              isSelected
+                                ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10"
+                                : "border-[var(--card-border)]"
+                            }`}
+                            style={{
+                              backgroundColor: "var(--card-background)",
+                              color: "var(--text-color)",
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              name={`listening-q${currentQuestionIndex}`}
+                              checked={isSelected}
+                              onChange={() =>
+                                setSubmittedAnswers((prev) => ({
+                                  ...prev,
+                                  listening: {
+                                    ...(prev.listening || {}),
+                                    [currentQuestionIndex]: idx,
+                                  },
+                                }))
+                              }
+                              className="w-4 h-4"
+                              style={{ accentColor: "var(--color-primary)" }}
+                            />
+                            <span className="text-sm">{opt}</span>
+                          </label>
+                        </li>
+                      );
+                    }
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Navigation Controls */}
+        {showQuestions &&
+          (exam.type === "reading" || exam.type === "listening") && (
+            <div className="flex justify-between mt-6">
               <button
                 onClick={handlePrevious}
                 disabled={currentQuestionIndex === 0}
-                className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
-                  currentQuestionIndex === 0 
-                    ? 'text-gray-400 cursor-not-allowed' 
-                    : 'text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10'
-                }`}
+                className="px-4 py-2 text-sm rounded-xl flex items-center gap-2 transition-opacity"
+                style={{
+                  border: "1px solid var(--color-primary)",
+                  backgroundColor: "transparent",
+                  color:
+                    currentQuestionIndex === 0
+                      ? "var(--muted-text)"
+                      : "var(--color-primary)",
+                  cursor:
+                    currentQuestionIndex === 0 ? "not-allowed" : "pointer",
+                  opacity: currentQuestionIndex === 0 ? 0.5 : 1,
+                }}
               >
-                <FiArrowLeft className="text-sm" />
+                <FiArrowLeft />
                 Previous
               </button>
 
-              <div className="text-sm muted-text">
-                {(exam.type === 'reading' || exam.type === 'listening') 
-                  ? `${currentQuestionIndex + 1} / ${totalQuestions}` 
-                  : `Section ${currentSectionIndex + 1} / ${SECTION_ORDER.length}`
-                }
-              </div>
-
               <button
                 onClick={handleNext}
-                className="px-6 py-2 text-white rounded-lg font-medium flex items-center gap-2 transition-all duration-200 hover:opacity-90"
-                style={{ backgroundColor: 'var(--color-primary)' }}
+                className="px-6 py-2 rounded-xl text-white text-sm flex items-center gap-2 hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: "var(--color-primary)" }}
               >
-                {isLastQuestion && isLastSection ? 'Submit Exam' : 
-                 isLastQuestion ? 'Next Section' : 'Next'}
-                <FiArrowRight className="text-sm" />
+                {isLastQuestion && isLastSection
+                  ? "Submit Exam"
+                  : isLastQuestion
+                  ? "Next Section"
+                  : "Next"}
+                <FiArrowRight />
               </button>
             </div>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* Confirm Exit Modal */}
-      {showConfirmExit && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="card rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <FiXCircle className="text-2xl text-red-500" />
-              </div>
-              <h2 className="text-2xl font-bold mb-3" style={{ color: 'var(--text-color)' }}>Leave Exam?</h2>
-              <p className="muted-text mb-8">
-                Are you sure you want to leave? All your progress will be lost and you'll need to start over.
-              </p>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setShowConfirmExit(false)}
-                  className="flex-1 px-6 py-3 border-2 rounded-xl font-semibold hover:opacity-80 transition-colors duration-200"
-                  style={{ 
-                    borderColor: 'var(--card-border)',
-                    color: 'var(--text-color)',
-                    backgroundColor: 'var(--secondary-background)'
-                  }}
+        {/* Submit Button for Writing/Speaking */}
+        {(exam.type === "writing" || exam.type === "speaking") && (
+          <div className="text-center mt-6">
+            <button
+              onClick={handleNext}
+              className="w-full py-3 rounded-xl text-white text-lg shadow-md transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--color-primary)" }}
+            >
+              <FiCheckCircle className="inline mr-2" />
+              {isLastSection ? "Submit Final Exam" : "Submit & Next Section"}
+            </button>
+          </div>
+        )}
+
+        {/* Confirm Exit Modal */}
+        {showConfirmExit && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="card rounded-2xl shadow-2xl p-8 max-w-md w-full">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <FiXCircle className="text-2xl text-red-500" />
+                </div>
+                <h2
+                  className="text-2xl font-bold mb-3"
+                  style={{ color: "var(--text-color)" }}
                 >
-                  Stay in Exam
-                </button>
-                <button
-                  onClick={() => router.push('/dashboard')}
-                  className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors duration-200"
-                >
-                  Leave Exam
-                </button>
+                  Leave Exam?
+                </h2>
+                <p className="muted-text mb-8">
+                  Are you sure you want to leave? All your progress will be lost
+                  and you'll need to start over.
+                </p>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setShowConfirmExit(false)}
+                    className="flex-1 px-6 py-3 border-2 rounded-xl font-semibold hover:opacity-80 transition-colors duration-200"
+                    style={{
+                      borderColor: "var(--card-border)",
+                      color: "var(--text-color)",
+                      backgroundColor: "var(--card-background)",
+                    }}
+                  >
+                    Stay in Exam
+                  </button>
+                  <button
+                    onClick={() => router.push("/dashboard")}
+                    className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors duration-200"
+                  >
+                    Leave Exam
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

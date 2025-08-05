@@ -73,7 +73,7 @@ export async function POST(req) {
     await addDoc(collection(db, 'subscriptions'), subscriptionData);
 
     // ✅ Save in user-specific path
-    const userSubRef = doc(db, 'users', userId, 'subscriptions', 'details');
+    const userSubRef = doc(db, 'users', userId, 'subscription', 'details');
     await setDoc(userSubRef, {
       amount,
       currency,

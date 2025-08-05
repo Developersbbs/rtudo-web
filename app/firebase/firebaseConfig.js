@@ -4,12 +4,12 @@ import {getFirestore} from 'firebase/firestore'
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBZTBa408ZFophmOkz8RBq7LNDYH-RyDDU",
-  authDomain: "tudo-staging.firebaseapp.com",
-  projectId: "tudo-staging",
-  storageBucket: "tudo-staging.firebasestorage.app",
-  messagingSenderId: "910133539337",
-  appId: "1:910133539337:web:566c0b99e9ec1c000afed8"
+  apiKey: "AIzaSyArHM_FfClgRHX0ogRIjj4q5wWiPWeNA7w",
+  authDomain: "tudo-english-app.firebaseapp.com",
+  projectId: "tudo-english-app",
+  storageBucket: "tudo-english-app.appspot.com",
+  messagingSenderId: "136065827824",
+  appId: "1:136065827824:web:1f6a4357d9e12592e69335"
 };
 
 const app = initializeApp(firebaseConfig);

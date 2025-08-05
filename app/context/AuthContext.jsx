@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
         } else {
           // Fetch order ID from subscriptions/details if exists
           const subscriptionSnap = await getDocs(
-            collection(db, "users", uid, "subscriptions")
+            collection(db, "users", uid, "subscription")
           );
 
           let currentPlan = "Free";

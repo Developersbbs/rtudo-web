@@ -31,7 +31,7 @@ export async function POST(req) {
       );
     }
 
-    const userSubscriptionRef = doc(db, "users", userId, "subscriptions", "details");
+    const userSubscriptionRef = doc(db, "users", userId, "subscription", "details");
     const existingSnap = await getDoc(userSubscriptionRef);
 
     const now = new Date();
@@ -87,7 +87,7 @@ export async function POST(req) {
       createdAt: serverTimestamp(),
     });
 
-    // ✅ 2. Save to users/{uid}/subscriptions/details
+    // ✅ 2. Save to users/{uid}/subscription/details
     await setDoc(userSubscriptionRef, {
       plan: planId,
       amount,

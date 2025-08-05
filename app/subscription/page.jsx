@@ -40,7 +40,7 @@ export default function SubscriptionsPlans() {
     if (!user?.uid) return;
 
     try {
-      const userSubRef = doc(db, `users/${user.uid}/subscriptions`, "details");
+      const userSubRef = doc(db, `users/${user.uid}/subscription`, "details");
       const userSubSnap = await getDoc(userSubRef);
 
       if (userSubSnap.exists()) {
@@ -87,7 +87,7 @@ export default function SubscriptionsPlans() {
       id: "pro",
       name: "Pro",
       price: 999,
-      originalPrice: 4999,
+      originalPrice: 9999,
       features: [
         { icon: FaBookOpen, text: "Access to all chapters" },
         { icon: LuPencil, text: "Unlimited practice exercises" },

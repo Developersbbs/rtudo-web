@@ -484,10 +484,10 @@ Return ONLY "PASS" or "FAIL" based on this strict evaluation. An irrelevant resp
     <div className="p-6 max-w-3xl mx-auto">
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-2 mb-4 text-sm font-medium hover:opacity-80 transition-opacity"
+        className="flex items-center gap-2 mb-4 text-sm font-medium transition-opacity"
         style={{ color: 'var(--color-primary)' }}
       >
-        <div className="w-8 h-8 rounded-full border flex items-center justify-center hover:bg-opacity-10 hover:bg-current transition-colors"
+        <div className="w-8 h-8 rounded-full border flex items-center justify-center  transition-colors"
              style={{ borderColor: 'var(--card-border)' }}>
           <FiArrowLeft className="text-lg" />
         </div>

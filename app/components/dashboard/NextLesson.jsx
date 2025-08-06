@@ -24,7 +24,6 @@ export default function NextLessonCard() {
   const [loading, setLoading] = useState(true);
 
   const router = useRouter();
-  const TOTAL_LESSONS = 33;
 
   useEffect(() => {
     const fetchNextLesson = async () => {
@@ -33,10 +32,11 @@ export default function NextLessonCard() {
       if (!user) return;
 
       try {
-        const [userSnap, subSnap, progressSnap] = await Promise.all([
+        const [userSnap, subSnap, progressSnap, chaptersSnap] = await Promise.all([
           getDoc(doc(db, "users", user.uid)),
           getDoc(doc(db, "users", user.uid, "subscription", "details")),
           getDoc(doc(db, "users", user.uid, "progress", "chapters")),
+          getDocs(collection(db, "chapters")),
         ]);
 
         // 🔹 SUBSCRIPTION
@@ -56,11 +56,32 @@ export default function NextLessonCard() {
         // 🔹 USER DATA & PROGRESS
         const userData = userSnap.exists() ? userSnap.data() : {};
         const progressData = progressSnap.exists() ? progressSnap.data() : {};
-        const count = progressData.completedLessonsCount || 0;
         const completedLessons = progressData.completedLessons || [];
 
-        setFullyCompleted(count >= TOTAL_LESSONS);
-        if (count >= TOTAL_LESSONS) {
+        // Get all chapters and their lessons
+        const chapters = chaptersSnap.docs;
+        let allChaptersCompleted = true;
+
+        for (const chapterDoc of chapters) {
+          const lessonsSnap = await getDocs(collection(db, "chapters", chapterDoc.id, "lessons"));
+          const lessons = lessonsSnap.docs.filter(doc => doc.data().videoUrl); // Only video lessons
+          
+          // Check if all video lessons in this chapter are completed
+          const chapterCompleted = lessons.every(lessonDoc => {
+            const lessonKey = `${chapterDoc.id}-${lessonDoc.id}`;
+            return completedLessons.some(item => 
+              (typeof item === "object" ? item.key : item) === lessonKey
+            );
+          });
+
+          if (!chapterCompleted) {
+            allChaptersCompleted = false;
+            break;
+          }
+        }
+
+        setFullyCompleted(allChaptersCompleted);
+        if (allChaptersCompleted) {
           setLoading(false);
           return;
         }

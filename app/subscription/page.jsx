@@ -93,8 +93,8 @@ const [appliedCoupon, setAppliedCoupon] = useState(null);
     pro: {
       id: "pro",
       name: "Pro",
-      price: 999,
-      originalPrice: 9999,
+      price: 9999,
+      originalPrice: null,
       features: [
         { icon: FaBookOpen, text: "Access to all chapters" },
         { icon: LuPencil, text: "Unlimited practice exercises" },
